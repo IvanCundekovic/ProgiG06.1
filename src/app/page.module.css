@@ -56,6 +56,25 @@
   font-weight: 600;
 }
 
+.loginButton {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #00acc1;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  z-index: 100;
+}
+
+.loginButton:hover {
+  background-color: #00838f;
+}
+
 .ctas {
   display: flex;
   gap: 16px;
