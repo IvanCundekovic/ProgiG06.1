@@ -1,14 +1,20 @@
 "use client";
 import {useState} from "react";
-import {Box, Button, TextField, Typography, Paper, Container} from "@mui/material";
+import {Box, Button, TextField, Typography, Paper, Container,} from "@mui/material";
+import Link from "next/link";
 
-export default function LoginPage(){
-    const [email, setEmail] = useState("");
+export default function SignUpPage(){
+    const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
 
+    
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Logging in with:", email, password);
+        if (identifier.includes("@")){
+            console.log("Logging in with email:", identifier, password)
+            return
+        }
+        console.log("Logging in with username:", identifier, password);
     }
     return (
         <Box sx = {{
@@ -30,20 +36,21 @@ export default function LoginPage(){
                        }}
                 >
                     <Typography variant = "h5" color = "primary" gutterBottom>
-                       Postani majstor kuhaone!
+                       Uđi u kuhaonu!
                     </Typography>
 
                     <Box component="form" onSubmit={handleSubmit} sx={{width: "100%"}}>
                         <TextField
-                            label = "Email"
-                            type = "email"
-                            value = {email}
-                            onChange = {(e) => setEmail(e.target.value)}
+                            label = "Username or Email"
+                            type = "text"
+                            value = {identifier}
+                            onChange = {(e) => setIdentifier(e.target.value)}
                             fullWidth
                             margin = "normal"
                             variant = "outlined"
                             required
                         />
+                       
                         <TextField
                             label = "Password"
                             type = "password"
@@ -67,6 +74,12 @@ export default function LoginPage(){
                         >
                             Log in
                         </Button>
+
+                        <Link href = "/SignUpPage">
+                            <Button variant = "text" fullWidth sx = {{mt: 1}}>
+                                Sign up
+                            </Button>
+                        </Link>
                     </Box>
                 </Paper>
             </Container>
