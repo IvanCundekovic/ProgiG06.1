@@ -2,6 +2,7 @@
 import {useState} from "react";
 import {Box, Button, TextField, Typography, 
         Paper, Container, FormControlLabel, Checkbox} from "@mui/material";
+import {redirect} from "next/navigation";
 
 export default function SignUpPage(){
     const [username, setUsername] = useState("");
@@ -24,10 +25,14 @@ export default function SignUpPage(){
             return
         }
         console.log("Logging in with:", username, email, password);
+        // local storage samo temporary, da login ima bar neku funkcionalnost za sad
+        localStorage.setItem("username", username);
+        localStorage.setItem("email",email);
+        redirect ("/Homepage");
     }
     return (
         <Box sx = {{
-            background: "linear-gradient(135deg, #101111, #818380)",
+            background: "linear-gradient(135deg, #e2e2e2ff, #818380)",
             height: "100vh",
             display: "flex",
             alignItems: "center",
@@ -114,8 +119,8 @@ export default function SignUpPage(){
                             fullWidth
                             sx = {{
                                 mt: 2,
-                                backgroundColor: "#00acc1",
-                                "&:hover": {backgroundColor: "#00838f"},
+                                backgroundColor: "#df0000ff",
+                                "&:hover": {backgroundColor: "#e73d3dff"},
                             }}
                         >
                             Sign up
