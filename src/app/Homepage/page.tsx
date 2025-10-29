@@ -3,11 +3,14 @@ import {useState} from "react";
 import {Box, AppBar, Toolbar, Typography, Button, Drawer, 
         List, ListItem, ListItemButton, ListItemText} from "@mui/material";
 import Link from "next/link";
-import { redirect } from "next/dist/server/api-utils";
+import CookingRecipes from "../Components/CookingRecipes";
+import Extra from "../Components/Extra";
+import LiveWorkshops from "../Components/LiveWorkshops";
+import VideoLectures from "../Components/VideoLectures";
 
 export default function Homepage(){
     const [selectedCategory, setSelectedCategory] = useState("Cooking recipes");
-    const categories = ["Cooking recipes", "Mentors", "Video Lectures", "Extra"];
+    const categories = ["Cooking recipes", "Live workshops", "Video lectures", "Extra"];
     const [username,setUsername] = useState(localStorage.getItem("username"));
 
     return (
@@ -81,21 +84,13 @@ export default function Homepage(){
                     {selectedCategory}
                 </Typography>
 
-                {selectedCategory === "Cooking recipes" && (
-                    <Typography color = "black"> Cooking recipes placeholder </Typography>
-                )}
+                {selectedCategory === "Cooking recipes" && (<CookingRecipes/>)}
 
-                 {selectedCategory === "Mentors" && (
-                    <Typography color = "black"> Mentors placeholder </Typography>
-                )}
+                 {selectedCategory === "Live workshops" && (<LiveWorkshops/>)}
 
-                 {selectedCategory === "Video Lectures" && (
-                    <Typography color = "black"> Video Lectures placeholder </Typography>
-                )}
+                 {selectedCategory === "Video Lectures" && (<VideoLectures/>)}
 
-                 {selectedCategory === "Extra" && (
-                    <Typography color = "black"> Quizzes, tasks, comments, grades </Typography>
-                )}
+                 {selectedCategory === "Extra" && (<Extra/>)}
                 
             </Box>
         </Box>
