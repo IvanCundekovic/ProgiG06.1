@@ -3,14 +3,15 @@ import {useState} from "react";
 import {Box, Button, TextField, Typography, 
         Paper, Container, FormControlLabel, Checkbox} from "@mui/material";
 import {redirect} from "next/navigation";
+import {useLocalStorage} from "@/app/functions/useLocalStorage";
 
 export default function SignUpPage(){
-    const [username, setUsername] = useState("");
-    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [repeatPassword, setRepeatPassword] = useState("");
     const [agree, setAgree] = useState(false);
     const [error, setError] = useState("");
+    const [username, setUsername] = useLocalStorage<string>("username", "");
+    const [email, setEmail] = useLocalStorage<string>("email", "");
 
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -25,9 +26,9 @@ export default function SignUpPage(){
             return
         }
         console.log("Logging in with:", username, email, password);
-        // local storage samo temporary, da login ima bar neku funkcionalnost za sad
-        localStorage.setItem("username", username);
-        localStorage.setItem("email",email);
+        // local storage samo temsporary, da login ima bar neku funkcionalnost za sad
+        setUsername(username);
+        setEmail(email);
         redirect ("/Homepage");
     }
     return (
