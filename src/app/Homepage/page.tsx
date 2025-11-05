@@ -98,7 +98,7 @@ export default function Homepage() {
 
                 {selectedCategory === "Live workshops" && (<LiveWorkshops/>)}
 
-                {selectedCategory === "Video Lectures" && (<VideoLectures/>)}
+                {selectedCategory === "Video lectures" && (<VideoLectures/>)}
 
                 {selectedCategory === "Extra" && (<Extra/>)}
 
