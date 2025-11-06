@@ -1,7 +1,6 @@
 import type {Metadata} from "next";
 import {Geist, Geist_Mono} from "next/font/google";
 import "./globals.css";
-import {AppRouterCacheProvider} from "@mui/material-nextjs/v15-appRouter";
 import {ReactNode} from "react";
 import Providers from "@/app/providers";
 
@@ -29,9 +28,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <Providers>
-            <AppRouterCacheProvider>
-                {children}
-            </AppRouterCacheProvider>
+            {children}
         </Providers>
       </body>
     </html>

@@ -2,11 +2,14 @@
 
 import {SessionProvider} from "next-auth/react";
 import React from "react";
+import {AppRouterCacheProvider} from "@mui/material-nextjs/v15-appRouter";
 
 export default function Providers({children}: { children: React.ReactNode }) {
     return (
         <SessionProvider>
-            {children}
+            <AppRouterCacheProvider>
+                {children}
+            </AppRouterCacheProvider>
         </SessionProvider>
     );
 }
