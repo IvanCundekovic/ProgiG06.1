@@ -6,18 +6,18 @@ import {prisma} from "@/prisma"
 import {findUserByEmail, verifyPassword} from "@/app/lib/auth-utils";
 
 import {Role} from "@prisma/client";
+import {NextAuthConfig, User} from "next-auth";
 
-interface AuthorizeUser {
+interface ExtendedUser extends User {
     id: string;
     email: string;
-    name: string | null;
     role: Role;
 }
 
-const GITHUB_CLIENT_ID = process.env.AUTH_GITHUB_ID ?? "123";
-const GITHUB_CLIENT_SECRET = process.env.AUTH_GITHUB_SECRET ?? "123";
-const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID ?? "123";
-const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET ?? "123";
+const GITHUB_CLIENT_ID = process.env.AUTH_GITHUB_ID;
+const GITHUB_CLIENT_SECRET = process.env.AUTH_GITHUB_SECRET;
+const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID;
+const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET;
 
 if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
     throw new Error("Missing GitHub OAuth credentials in environment variables.");
@@ -26,7 +26,7 @@ if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     throw new Error("Missing Google OAuth credentials in environment variables.");
 }
 
-export const authOptions = {
+export const authOptions: NextAuthConfig = {
     adapter: PrismaAdapter(prisma),
     providers: [
         Credentials({
@@ -52,7 +52,14 @@ export const authOptions = {
                 const isValid = await verifyPassword(password, user.passwordHash);
 
                 if (isValid) {
-                    return user as AuthorizeUser;
+                    return {
+                        id: user.id,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role,
+                        image: user.image,
+                        emailVerified: user.emailVerified,
+                    };
                 }
 
                 return null;
@@ -71,12 +78,12 @@ export const authOptions = {
         strategy: "database",
     },
     callbacks: {
-        // @ts-expect-error ignoriraj any kao tip
-        async session({session, user, token}) {
-
+        async session({session, user}) {
             if (user) {
-                (session.user).id = user.id;
-                (session.user).role = user.role;
+                const extendedUser = user as ExtendedUser;
+
+                (session.user as ExtendedUser).id = extendedUser.id;
+                (session.user as ExtendedUser).role = extendedUser.role;
             }
             return session;
         }

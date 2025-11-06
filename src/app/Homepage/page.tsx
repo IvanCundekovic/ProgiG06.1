@@ -17,8 +17,10 @@ import Extra from "../Components/Extra";
 import LiveWorkshops from "../Components/LiveWorkshops";
 import VideoLectures from "../Components/VideoLectures";
 import {signOut, useSession} from "next-auth/react";
+import {useRouter} from "next/navigation";
 
 export default function Homepage() {
+    const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState("Cooking recipes");
     const categories = ["Cooking recipes", "Live workshops", "Video lectures", "Extra"];
 
@@ -34,7 +36,7 @@ export default function Homepage() {
     }
 
     const handleLoginClick = () => {
-        window.location.href = "/LoginPage";
+        router.push("/LoginPage");
     }
 
     if (isLoading) {

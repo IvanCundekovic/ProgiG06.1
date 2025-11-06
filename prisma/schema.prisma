@@ -73,10 +73,6 @@ model Session {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Vaša prilagođena polja (ako su vam potrebna, inače ih izbacite)
-  token     String   @unique @default(uuid()) // Vaše originalno polje
-  createdAt DateTime @default(now())
-
   @@map("sessions")
 }
 
