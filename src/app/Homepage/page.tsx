@@ -12,17 +12,40 @@ import {
     Toolbar,
     Typography
 } from "@mui/material";
-import Link from "next/link";
 import CookingRecipes from "../Components/CookingRecipes";
 import Extra from "../Components/Extra";
 import LiveWorkshops from "../Components/LiveWorkshops";
 import VideoLectures from "../Components/VideoLectures";
-import {useLocalStorage} from "@/app/functions/useLocalStorage";
+import {signOut, useSession} from "next-auth/react";
+import {useRouter} from "next/navigation";
 
 export default function Homepage() {
+    const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState("Cooking recipes");
     const categories = ["Cooking recipes", "Live workshops", "Video lectures", "Extra"];
-    const [username, setUsername] = useLocalStorage<string>("username", "");
+
+    const {data: session, status} = useSession();
+
+    const isAuthenticated = status === "authenticated";
+    const isLoading = status === "loading";
+
+    const username = session?.user?.name || session?.user?.email;
+
+    const handleSignOut = () => {
+        void signOut({callbackUrl: "/Homepage"});
+    }
+
+    const handleLoginClick = () => {
+        router.push("/LoginPage");
+    }
+
+    if (isLoading) {
+        return (
+            <Box sx={{display: "flex", justifyContent: "center", alignItems: "center", height: "100vh"}}>
+                <Typography variant="h5">Učitavanje...</Typography>
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{display: "flex", height: "100vh"}}>
@@ -35,23 +58,24 @@ export default function Homepage() {
                     <Typography variant="h6" noWrap>
                         Kuhaona
                     </Typography>
-                    {username === "" ? (
-                        <Link href="/LoginPage">
-                            <Button color="inherit" variant="outlined">
-                                Log In
-                            </Button>
-                        </Link>
+
+                    {!isAuthenticated ? (
+                        <Button
+                            color="inherit"
+                            variant="outlined"
+                            onClick={handleLoginClick}
+                        >
+                            Log In
+                        </Button>
                     ) : (
                         <Box sx={{display: "flex", alignItems: "center", gap: 2}}>
                             <Typography variant="h6" noWrap sx={{mr: 2}}>
-                                {username}
+                                Pozdrav, {username}!
                             </Typography>
 
                             <Button color="inherit" variant="outlined"
-                                    onClick={() => {
-                                        setUsername("");
-                                    }}>
-                                Sign out
+                                    onClick={handleSignOut}>
+                                Odjava
                             </Button>
                         </Box>
                     )}
