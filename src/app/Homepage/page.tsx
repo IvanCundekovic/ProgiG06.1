@@ -22,7 +22,7 @@ import {useRouter} from "next/navigation";
 export default function Homepage() {
     const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState("Cooking recipes");
-    const categories = ["Cooking recipes", "Live workshops", "Video lectures", "Extra"];
+    const categories = ["Cooking recipes", "Live workshops", "Video Lectures", "Extra"];
 
     const {data: session, status} = useSession();
 
