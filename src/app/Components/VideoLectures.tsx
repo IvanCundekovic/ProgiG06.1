@@ -41,7 +41,7 @@ const mockCourses: Course[] = [
                     "Korak-po-korak vodič za pripremu svježe tjestenine, od miješenja tijesta do savršene teksture.",
                 content:
                     "U ovoj lekciji naučit ćete kako odabrati pravo brašno, pravilno mijesiti tijesto i oblikovati tjesteninu.",
-                videoUrl: "https://www.youtube.com/watch?v=z4dOsI2-xXU",
+                videoUrl: "https://www.youtube.com/watch?v=EnXb1u9UoBU",
                 published: true,
                 createdAt: new Date("2024-01-12"),
                 steps: [
@@ -170,7 +170,7 @@ const mockCourses: Course[] = [
                 description: "Skraćena verzija tradicionalne vijetnamske juhe s bogatim umamijem.",
                 content:
                     "Otkrivamo kako slojevito graditi okus juhe koristeći začine, meso i svježe dodatke.",
-                videoUrl: "https://www.youtube.com/watch?v=1C0vhu4Yv5Q",
+                videoUrl: "https://www.youtube.com/watch?v=WSWwYeEuSLg",
                 published: true,
                 createdAt: new Date("2024-03-10"),
                 steps: [
@@ -229,7 +229,7 @@ const mockCourses: Course[] = [
                 description: "Savršeno hrskavi i sočni ravioli punjeni svinjetinom i povrćem.",
                 content:
                     "U ovoj lekciji učimo bračno tijesto, punjenje i tehniku pečenja/kuhanja gyoza.",
-                videoUrl: "https://www.youtube.com/watch?v=TQYB7py97i4",
+                videoUrl: "https://www.youtube.com/watch?v=VoTqzjg83u8",
                 published: true,
                 createdAt: new Date("2024-03-22"),
                 steps: [

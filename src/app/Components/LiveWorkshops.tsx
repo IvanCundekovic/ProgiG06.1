@@ -304,7 +304,7 @@ export default function LiveWorkshops() {
         <Box>
             <Stack direction={{xs: "column", md: "row"}} justifyContent="space-between" alignItems={{xs: "stretch", md: "center"}} gap={2}>
                 <Box>
-                    <Typography variant="h4" gutterBottom>
+                    <Typography variant="h4">
                         Live radionice
                     </Typography>
                     <Typography variant="body2" color="text.secondary">

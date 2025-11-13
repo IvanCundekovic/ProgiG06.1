@@ -8,7 +8,9 @@ import {
     Typography,
     Button,
     Chip,
-    Stack
+    Stack,
+    gridClasses,
+    Grid
 } from "@mui/material";
 import QuizDialog from "./QuizDialog";
 import type {Quiz} from "@/app/types/quiz";
@@ -215,15 +217,17 @@ export default function Extra() {
             </Box>
 
             <Box className="extra-quiz-grid">
+                <Grid container spacing = {3} >
                 {lessonQuizzes.map((lessonQuiz) => (
+                    
                     <Card key={lessonQuiz.id} className="extra-quiz-card">
-                        <CardContent>
+                        <CardContent sx = {{flexGrow: 1}}>
                             <Stack
                                 direction="row"
                                 justifyContent="space-between"
                                 alignItems="center"
                                 spacing={1}
-                            >
+                                >
                                 <Chip label={lessonQuiz.courseTitle} color="secondary" size="small" />
                                 <Chip label="Kviz" color="primary" size="small" />
                             </Stack>
@@ -244,13 +248,15 @@ export default function Extra() {
                                     variant="contained"
                                     color="primary"
                                     onClick={() => handleStartQuiz(lessonQuiz)}
-                                >
+                                    >
                                     Pokreni kviz
                                 </Button>
                             </Box>
                         </CardContent>
                     </Card>
+                    
                 ))}
+                </Grid>
             </Box>
 
             {selectedLessonQuiz && (

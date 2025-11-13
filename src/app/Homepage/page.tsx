@@ -22,7 +22,7 @@ import {useRouter} from "next/navigation";
 export default function Homepage() {
     const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState("Cooking recipes");
-    const categories = ["Cooking recipes", "Live workshops", "Video Lectures", "Extra"];
+    const categories = ["Live radionice", "Video lekcije", "Dodatno"];
 
     const {data: session, status} = useSession();
 
@@ -48,7 +48,7 @@ export default function Homepage() {
     }
 
     return (
-        <Box sx={{display: "flex", height: "100vh"}}>
+        <Box sx={{display: "flex"}}>
 
             <AppBar position="fixed"
                     sx={{zIndex: (theme) => theme.zIndex.drawer + 1, background: "#df0000ff"}}>
@@ -113,18 +113,15 @@ export default function Homepage() {
                      mt: 8,
                      background: "linear-gradient(135deg, #e2e2e2ff, #818380)",
                      color: "black",
+                     minHeight: "100vh"
                  }}>
-                <Typography variant="h4" gutterBottom>
-                    {selectedCategory}
-                </Typography>
+                
 
-                {selectedCategory === "Cooking recipes" && (<CookingRecipes/>)}
+                {selectedCategory === "Live radionice" && (<LiveWorkshops/>)}
 
-                {selectedCategory === "Live workshops" && (<LiveWorkshops/>)}
+                {selectedCategory === "Video lekcije" && (<VideoLectures/>)}
 
-                {selectedCategory === "Video Lectures" && (<VideoLectures/>)}
-
-                {selectedCategory === "Extra" && (<Extra/>)}
+                {selectedCategory === "Dodatno" && (<Extra/>)}
 
             </Box>
         </Box>
