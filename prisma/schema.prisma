@@ -1,9 +1,8 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Simplified Prisma schema for Google Calendar integration
+// Basic functionality without bookings
 
 generator client {
   provider = "prisma-client-js"
-  // output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -12,44 +11,41 @@ datasource db {
 }
 
 // ==========================================================
-// 1. AUTH.JS / NEXTAUTH MODELI (OBVEZNI ZA ADAPTER)
+// AUTH.JS / NEXTAUTH MODELS
 // ==========================================================
 
-// Model 'User' - Korišten za pohranu korisničkih podataka
 model User {
-  // Auth.js zahtijeva String ID
   id String @id @default(cuid())
 
-  // Vaša aplikacijska polja
+  // Application fields
   email        String   @unique
-  passwordHash String? // Koristi se za lokalnu prijavu (Credentials provider)
+  passwordHash String?
   name         String?
-  role         Role     @default(STUDENT) // Vaš prilagođeni enum
+  role         Role     @default(STUDENT)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Polja za Auth.js
-  emailVerified DateTime? // Obavezno za Auth.js User
-  image         String? // Obavezno za Auth.js User
+  // Auth.js required fields
+  emailVerified DateTime?
+  image         String?
 
-  // Relacije
-  accounts Account[] // Bilo je 'oauthAccounts', sada je 'accounts'
-  sessions Session[]
+  // Relations
+  accounts               Account[]
+  sessions               Session[]
+  googleCalendarSettings GoogleCalendarSettings?
+  liveWorkshops          LiveWorkshop[] // objava radionica
 
-  // Mapiranje na tablicu u bazi, ako želite da se zove 'users' (NextAuth default)
   @@map("users")
 }
 
-// Model 'Account' - Korišten za pohranu OAuth tokena i veza
 model Account {
-  // Standardna Auth.js polja
   id                String @id @default(cuid())
-  userId            String // Povezuje se na User.id (koji je sada String)
-  type              String // npr. "oauth", "email", "credentials"
+  userId            String
+  type              String
   provider          String
   providerAccountId String
 
-  // Tokeni (NextAuth zahtijeva sva ova polja, neka su @db.Text)
+  // Tokens
   refresh_token String? @db.Text
   access_token  String? @db.Text
   expires_at    Int?
@@ -64,19 +60,17 @@ model Account {
   @@map("accounts")
 }
 
-// Model 'Session' - Korišten za pohranu sesija
 model Session {
   id           String   @id @default(cuid())
-  sessionToken String   @unique // Auth.js zahtijeva ovo polje
-  userId       String // Povezuje se na User.id
-  expires      DateTime // Auth.js zahtijeva ovo polje
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
 
-// Model 'VerificationToken' - Obavezan za Email providera, iako ga ne koristite, mora postojati.
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -87,10 +81,95 @@ model VerificationToken {
 }
 
 // ==========================================================
-// 2. ENUMI
+// GOOGLE CALENDAR
 // ==========================================================
+
+model GoogleCalendarSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // OAuth za Google Calendar
+  accessToken    String   @db.Text
+  refreshToken   String   @db.Text
+  tokenExpiresAt DateTime
+
+  // jedinstveni id
+  calendarId String 
+  scope      String? 
+
+  syncEnabled Boolean @default(true)
+  timeZone    String  @default("Europe/Zagreb")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("google_calendar_settings")
+}
+
+// radionice
+model LiveWorkshop {
+  id          String   @id @default(cuid())
+
+  title       String
+  description String?  @db.Text
+  
+  startTime   DateTime
+  endTime     DateTime
+  duration    Int // trajanje radionice u minutama
+  timeZone    String @default("Europe/Zagreb")
+  
+  // relacije za instruktora
+  instructorId String
+  instructor   User @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  
+  maxParticipants     Int
+  currentParticipants Int @default(0)
+ 
+  prerequisites   String? @db.Text
+  difficultyLevel String? // beginner, intermediate, advanced
+  
+  // streaming???
+  streamingUrl    String?
+  meetingId       String?
+  meetingPassword String?
+  
+  requiredIngredients String? @db.Text // JSON list
+  requiredEquipment   String? @db.Text // JSON list
+  preparationNotes    String? @db.Text
+  
+  recordingUrl String?
+  recordingId  String?
+  
+  // Google Calendar id
+  googleCalendarEventId String? @unique // Event ID in instructor's Google Calendar
+  
+  // stanje radionice
+  status WorkshopStatus @default(SCHEDULED)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([instructorId])
+  @@index([startTime])
+  @@index([status])
+  @@map("live_workshops")
+}
+
+// ==========================================================
+// ENUMI
+// ==========================================================
+
 enum Role {
   STUDENT
   INSTRUCTOR
   ADMINISTRATOR
+}
+
+enum WorkshopStatus {
+  SCHEDULED   
+  IN_PROGRESS 
+  COMPLETED   
+  CANCELLED  
 }
