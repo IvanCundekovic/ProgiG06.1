@@ -1,6 +1,6 @@
 "use client";
 
-import {ChangeEvent, FormEvent, useMemo, useState} from "react";
+import {ChangeEvent, FormEvent, useMemo, useState, useEffect} from "react";
 import {
     Box,
     Card,
@@ -19,11 +19,14 @@ import {
     TextField,
     Divider,
     Alert,
-    Paper
+    Paper,
+    CircularProgress
 } from "@mui/material";
 import type {Course, Lesson} from "@/app/types/quiz";
 import {useLessonFeedback} from "@/app/functions/useLessonFeedback";
+import {useSession} from "next-auth/react";
 
+// Mock courses - TODO: Ukloniti kada se učitaju iz API-ja
 const mockCourses: Course[] = [
     {
         id: "course-1",
@@ -319,11 +322,6 @@ const mockCourses: Course[] = [
     }
 ];
 
-const DEMO_STUDENT = {
-    id: "demo-student-1",
-    name: "Demo polaznik"
-};
-
 type LessonWithCourse = {
     lesson: Lesson;
     course: Course;
@@ -406,7 +404,7 @@ const formatDisplayDate = (isoDate: string) => {
 };
 
 export default function VideoLectures() {
-    const currentUser = DEMO_STUDENT;
+    const {data: session} = useSession();
     const {
         markLessonStarted,
         hasStartedLesson,
@@ -414,6 +412,8 @@ export default function VideoLectures() {
         respondToReview,
         addQuestion,
         addAnswer,
+        loadLessonReviews,
+        loadLessonQuestions,
         getLessonReviews,
         getLessonQuestions,
         getAverageRating,
@@ -421,7 +421,42 @@ export default function VideoLectures() {
         getUserReview
     } = useLessonFeedback();
 
-    const lessons = useLessonCards(mockCourses);
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Učitaj kurseve iz API-ja
+    useEffect(() => {
+        const loadCourses = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+                const response = await fetch("/api/courses");
+                if (!response.ok) {
+                    throw new Error("Greška pri učitavanju kurseva");
+                }
+                const data = await response.json();
+                // Ako API vraća prazan array ili nema podataka, koristi mock podatke
+                if (Array.isArray(data) && data.length === 0) {
+                    console.log("Baza podataka je prazna, koristim mock podatke");
+                    setCourses(mockCourses);
+                } else {
+                    setCourses(data);
+                }
+            } catch (err) {
+                console.error("Error loading courses:", err);
+                setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
+                // Fallback na mock podatke ako API ne radi
+                setCourses(mockCourses);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadCourses();
+    }, []);
+
+    const lessons = useLessonCards(courses);
 
     const [selectedLesson, setSelectedLesson] = useState<LessonWithCourse | null>(null);
     const [isLessonDialogOpen, setLessonDialogOpen] = useState(false);
@@ -470,10 +505,10 @@ export default function VideoLectures() {
 
     const userReview = useMemo(
         () =>
-            selectedCourseId && selectedLessonId
-                ? getUserReview(selectedCourseId, selectedLessonId, currentUser.id)
+            selectedCourseId && selectedLessonId && session?.user?.id
+                ? getUserReview(selectedCourseId, selectedLessonId, session.user.id)
                 : undefined,
-        [currentUser.id, getUserReview, selectedCourseId, selectedLessonId]
+        [session?.user?.id, getUserReview, selectedCourseId, selectedLessonId]
     );
 
     const lessonStarted = selectedLessonId ? hasStartedLesson(selectedLessonId) : false;
@@ -483,7 +518,7 @@ export default function VideoLectures() {
     const hasIngredients = selectedIngredients.length > 0;
     const hasNutrition = selectedNutrition.length > 0;
 
-    const handleOpenLesson = (entry: LessonWithCourse) => {
+    const handleOpenLesson = async (entry: LessonWithCourse) => {
         setSelectedLesson(entry);
         if (entry.lesson.ingredients?.length) {
             setActiveInfoTab("ingredients");
@@ -499,6 +534,14 @@ export default function VideoLectures() {
         setAnswerDrafts({});
         setReviewResponseDrafts({});
         setLessonDialogOpen(true);
+
+        // Učitaj recenzije i pitanja za lekciju
+        if (entry.course.id && entry.lesson.id) {
+            await Promise.all([
+                loadLessonReviews(entry.course.id, entry.lesson.id),
+                loadLessonQuestions(entry.course.id, entry.lesson.id)
+            ]);
+        }
     };
 
     const handleCloseLesson = () => {
@@ -513,25 +556,28 @@ export default function VideoLectures() {
         setReviewResponseDrafts({});
     };
 
-    const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleReviewSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!selectedLesson || reviewRating === null || userReview) {
+        if (!selectedLesson || reviewRating === null || userReview || !session?.user?.id) {
             return;
         }
 
-        addReview({
-            courseId: selectedLesson.course.id,
-            lessonId: selectedLesson.lesson.id,
-            rating: reviewRating,
-            comment: reviewComment.trim() || undefined,
-            photoDataUrl: reviewPhoto ?? undefined,
-            userId: currentUser.id,
-            userName: currentUser.name
-        });
+        try {
+            await addReview({
+                courseId: selectedLesson.course.id,
+                lessonId: selectedLesson.lesson.id,
+                rating: reviewRating,
+                comment: reviewComment.trim() || undefined,
+                photoDataUrl: reviewPhoto ?? undefined,
+            });
 
-        setReviewRating(null);
-        setReviewComment("");
-        setReviewPhoto(null);
+            setReviewRating(null);
+            setReviewComment("");
+            setReviewPhoto(null);
+        } catch (error) {
+            console.error("Error submitting review:", error);
+            // Error handling može biti dodan ovdje
+        }
     };
 
     const handleReviewPhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -551,21 +597,24 @@ export default function VideoLectures() {
         event.target.value = "";
     };
 
-    const handleQuestionSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleQuestionSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!selectedLesson || !questionText.trim()) {
+        if (!selectedLesson || !questionText.trim() || !session?.user?.id) {
             return;
         }
 
-        addQuestion({
-            courseId: selectedLesson.course.id,
-            lessonId: selectedLesson.lesson.id,
-            question: questionText.trim(),
-            userId: currentUser.id,
-            userName: currentUser.name
-        });
+        try {
+            await addQuestion({
+                courseId: selectedLesson.course.id,
+                lessonId: selectedLesson.lesson.id,
+                question: questionText.trim(),
+            });
 
-        setQuestionText("");
+            setQuestionText("");
+        } catch (error) {
+            console.error("Error submitting question:", error);
+            // Error handling može biti dodan ovdje
+        }
     };
 
     const handleAnswerChange = (questionId: string, value: string) => {
@@ -575,7 +624,7 @@ export default function VideoLectures() {
         }));
     };
 
-    const handleAnswerSubmit = (questionId: string) => {
+    const handleAnswerSubmit = async (questionId: string) => {
         if (!selectedLesson) {
             return;
         }
@@ -584,17 +633,20 @@ export default function VideoLectures() {
             return;
         }
 
-        addAnswer({
-            questionId,
-            responderId: selectedLesson.course.instructorId,
-            responderName: selectedLesson.course.instructorName,
-            message
-        });
+        try {
+            await addAnswer({
+                questionId,
+                message
+            });
 
-        setAnswerDrafts(prev => ({
-            ...prev,
-            [questionId]: ""
-        }));
+            setAnswerDrafts(prev => ({
+                ...prev,
+                [questionId]: ""
+            }));
+        } catch (error) {
+            console.error("Error submitting answer:", error);
+            // Error handling može biti dodan ovdje
+        }
     };
 
     const handleReviewResponseChange = (reviewId: string, value: string) => {
@@ -604,7 +656,7 @@ export default function VideoLectures() {
         }));
     };
 
-    const handleReviewResponseSubmit = (reviewId: string) => {
+    const handleReviewResponseSubmit = async (reviewId: string) => {
         if (!selectedLesson) {
             return;
         }
@@ -613,17 +665,20 @@ export default function VideoLectures() {
             return;
         }
 
-        respondToReview({
-            reviewId,
-            responderId: selectedLesson.course.instructorId,
-            responderName: selectedLesson.course.instructorName,
-            message
-        });
+        try {
+            await respondToReview({
+                reviewId,
+                message
+            });
 
-        setReviewResponseDrafts(prev => ({
-            ...prev,
-            [reviewId]: ""
-        }));
+            setReviewResponseDrafts(prev => ({
+                ...prev,
+                [reviewId]: ""
+            }));
+        } catch (error) {
+            console.error("Error responding to review:", error);
+            // Error handling može biti dodan ovdje
+        }
     };
 
     return (
@@ -635,74 +690,88 @@ export default function VideoLectures() {
                 Pregledajte lekcije i provjerite znanje na kraju svake lekcije kroz kviz.
             </Typography>
 
-            <Box
-                sx={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 3
-                }}
-            >
-                {lessons.map(({lesson, course}) => {
-                    const lessonAverage = getAverageRating(course.id, lesson.id);
-                    const lessonReviewCount = getReviewCount(course.id, lesson.id);
-                    return (
-                        <Box
-                            key={lesson.id}
-                            sx={{
-                                flex: "1 1 280px",
-                                minWidth: 280,
-                                maxWidth: 380
-                            }}
-                        >
-                            <Card className="lesson-card" sx={{height: "100%"}}>
-                                <CardActionArea onClick={() => handleOpenLesson({lesson, course})}>
-                                    <CardMedia
-                                        component="img"
-                                        height="180"
-                                        image={
-                                            lesson.videoUrl
-                                                ? getYoutubeThumbnail(lesson.videoUrl)
-                                                : "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=60"
-                                        }
-                                        alt={lesson.title}
-                                    />
-                                    <CardContent className="lesson-card-content">
-                                        <Stack
-                                            direction="row"
-                                            justifyContent="space-between"
-                                            alignItems="center"
-                                            spacing={1}
-                                            flexWrap="wrap"
-                                            useFlexGap
-                                        >
-                                            <Chip label={course.title} color="secondary" size="small" />
-                                            {lesson.quiz ? (
-                                                <Chip label="Ima kviz" color="success" size="small" />
-                                            ) : (
-                                                <Chip label="Bez kviza" size="small" />
-                                            )}
-                                            {lessonReviewCount > 0 && (
-                                                <Chip
-                                                    size="small"
-                                                    color="warning"
-                                                    label={`⭐ ${lessonAverage?.toFixed(1)} (${lessonReviewCount})`}
-                                                />
-                                            )}
-                                        </Stack>
+            {loading && (
+                <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
+                    <CircularProgress />
+                </Box>
+            )}
 
-                                        <Typography variant="h6" sx={{mt: 2}} gutterBottom>
-                                            {lesson.title}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            {truncate(lesson.description)}
-                                        </Typography>
-                                    </CardContent>
-                                </CardActionArea>
-                            </Card>
-                        </Box>
-                    );
-                })}
-            </Box>
+            {error && (
+                <Alert severity="error" sx={{mb: 2}}>
+                    {error}
+                </Alert>
+            )}
+
+            {!loading && (
+                <Box
+                    sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 3
+                    }}
+                >
+                    {lessons.map(({lesson, course}) => {
+                        const lessonAverage = getAverageRating(course.id, lesson.id);
+                        const lessonReviewCount = getReviewCount(course.id, lesson.id);
+                        return (
+                            <Box
+                                key={lesson.id}
+                                sx={{
+                                    flex: "1 1 280px",
+                                    minWidth: 280,
+                                    maxWidth: 380
+                                }}
+                            >
+                                <Card className="lesson-card" sx={{height: "100%"}}>
+                                    <CardActionArea onClick={() => handleOpenLesson({lesson, course})}>
+                                        <CardMedia
+                                            component="img"
+                                            height="180"
+                                            image={
+                                                lesson.videoUrl
+                                                    ? getYoutubeThumbnail(lesson.videoUrl)
+                                                    : "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=60"
+                                            }
+                                            alt={lesson.title}
+                                        />
+                                        <CardContent className="lesson-card-content">
+                                            <Stack
+                                                direction="row"
+                                                justifyContent="space-between"
+                                                alignItems="center"
+                                                spacing={1}
+                                                flexWrap="wrap"
+                                                useFlexGap
+                                            >
+                                                <Chip label={course.title} color="secondary" size="small" />
+                                                {lesson.quiz ? (
+                                                    <Chip label="Ima kviz" color="success" size="small" />
+                                                ) : (
+                                                    <Chip label="Bez kviza" size="small" />
+                                                )}
+                                                {lessonReviewCount > 0 && (
+                                                    <Chip
+                                                        size="small"
+                                                        color="warning"
+                                                        label={`⭐ ${lessonAverage?.toFixed(1)} (${lessonReviewCount})`}
+                                                    />
+                                                )}
+                                            </Stack>
+
+                                            <Typography variant="h6" sx={{mt: 2}} gutterBottom>
+                                                {lesson.title}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {truncate(lesson.description)}
+                                            </Typography>
+                                        </CardContent>
+                                    </CardActionArea>
+                                </Card>
+                            </Box>
+                        );
+                    })}
+                </Box>
+            )}
 
             <Dialog open={isLessonDialogOpen && !!selectedLesson} onClose={handleCloseLesson} maxWidth="md" fullWidth>
                 {selectedLesson && (

@@ -16,29 +16,21 @@ import {
     Alert
 } from "@mui/material";
 import {Quiz, QuizAnswer, QuizResult} from "../types/quiz";
-import {useSession} from "next-auth/react";
 import "../styles.css";
 
 interface QuizDialogProps {
     open: boolean;
     onClose: () => void;
     quiz: Quiz;
-    lessonId: string;
     lessonTitle: string;
-    courseId: string;
-    courseTitle: string;
 }
 
 export default function QuizDialog({
     open,
     onClose,
     quiz,
-    lessonId,
-    lessonTitle,
-    courseId,
-    courseTitle
+    lessonTitle
 }: QuizDialogProps) {
-    const {data: session} = useSession();
     const [answers, setAnswers] = useState<Record<string, number>>({});
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,57 +83,37 @@ export default function QuizDialog({
         setError(null);
 
         try {
-            // Mock API poziv - TODO: Zamijeniti pravim API pozivom
             const quizAnswers: QuizAnswer[] = quiz.questions.map(q => ({
                 questionId: q.id,
                 selectedAnswer: answers[q.id]
             }));
 
-            // Simulacija evaluacije
-            const score = quiz.questions.filter(q => {
-                const selectedAnswer = answers[q.id];
-                return selectedAnswer === q.correctAnswer;
-            }).length;
-
-            const percentage = Math.round((score / quiz.questions.length) * 100);
-
-            // Simulacija API poziva s mogućom greškom
-            const simulateApiCall = async () => {
-                // Simulacija network errora (10% šanse)
-                if (Math.random() < 0.1) {
-                    throw new Error("Network error: Greška u mreži pri predaji odgovora");
-                }
-
-                // Simulacija kašnjenja
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                return {
-                    id: `result-${Date.now()}`,
+            // Predaj kviz preko API-ja
+            const response = await fetch("/api/quiz-results", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
                     quizId: quiz.id,
-                    quizTitle: quiz.title,
-                    lessonId,
-                    lessonTitle,
-                    courseId,
-                    courseTitle,
-                    userId: session?.user?.id || "user1",
-                    userName: session?.user?.name || session?.user?.email || "User",
                     answers: quizAnswers,
-                    score,
-                    totalQuestions: quiz.questions.length,
-                    percentage,
-                    completedAt: new Date(),
-                    isCompleted: true
-                } as QuizResult;
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || "Greška pri predaji kviza");
+            }
+
+            const quizResult = await response.json();
+            
+            // Transformacija datuma
+            const transformedResult: QuizResult = {
+                ...quizResult,
+                completedAt: new Date(quizResult.completedAt),
             };
 
-            const quizResult = await simulateApiCall();
-
-            // Spremi rezultat u localStorage (mock) - TODO: Zamijeniti API pozivom
-            const existingResults = JSON.parse(localStorage.getItem("quizResults") || "[]");
-            existingResults.push(quizResult);
-            localStorage.setItem("quizResults", JSON.stringify(existingResults));
-
-            setResult(quizResult);
+            setResult(transformedResult);
             setShowResults(true);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Greška pri spremanju rezultata");

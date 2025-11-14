@@ -15,23 +15,13 @@ import {
     Paper,
     Stack,
     TextField,
-    Typography
+    Typography,
+    CircularProgress
 } from "@mui/material";
 import type {LiveWorkshop, WorkshopRequirement} from "@/app/types/quiz";
 import {useLessonFeedback} from "@/app/functions/useLessonFeedback";
 import {useLiveWorkshops} from "@/app/functions/useLiveWorkshops";
-
-const DEMO_INSTRUCTOR = {
-    id: "instructor-1",
-    name: "Ana Kovač"
-};
-
-const DEMO_STUDENT = {
-    id: "demo-student-1",
-    name: "Demo polaznik",
-    completedLessons: ["lesson-1", "lesson-3", "lesson-5"],
-    completedCourses: ["course-1"]
-};
+import {useSession} from "next-auth/react";
 
 type WorkshopFormState = {
     title: string;
@@ -82,8 +72,11 @@ const requirementTemplates: WorkshopRequirement[] = [
 const isPastDate = (isoDate: string) => new Date(isoDate).getTime() < Date.now();
 
 export default function LiveWorkshops() {
+    const {data: session} = useSession();
     const {
         workshops,
+        loading: workshopsLoading,
+        error: workshopsError,
         createWorkshop,
         updateWorkshop,
         updateWorkshopStatus,
@@ -161,7 +154,7 @@ export default function LiveWorkshops() {
         });
     };
 
-    const handleWorkshopSubmit = (event: FormEvent<HTMLFormElement>) => {
+    const handleWorkshopSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
         if (!formState.title.trim() || !formState.scheduledAt) {
@@ -181,44 +174,44 @@ export default function LiveWorkshops() {
 
         setErrorMessage(null);
 
-        if (editingWorkshopId) {
-            updateWorkshop({
-                id: editingWorkshopId,
-                title: formState.title.trim(),
-                description: formState.description.trim(),
-                scheduledAt: formState.scheduledAt,
-                durationMinutes: Number(formState.durationMinutes),
-                capacity: Number(formState.capacity),
-                meetingUrl: formState.meetingUrl.trim(),
-                requirements: formState.requirements
-            });
-            setSuccessMessage("Radionica je uspješno ažurirana.");
-        } else {
-            const created = createWorkshop({
-                title: formState.title.trim(),
-                description: formState.description.trim(),
-                scheduledAt: formState.scheduledAt,
-                durationMinutes: Number(formState.durationMinutes),
-                capacity: Number(formState.capacity),
-                meetingUrl: formState.meetingUrl.trim(),
-                requirements: formState.requirements,
-                instructorId: DEMO_INSTRUCTOR.id,
-                instructorName: DEMO_INSTRUCTOR.name
-            });
-            setSuccessMessage(`Radionica "${created.title}" je kreirana.`);
+        try {
+            if (editingWorkshopId) {
+                await updateWorkshop({
+                    id: editingWorkshopId,
+                    title: formState.title.trim(),
+                    description: formState.description.trim(),
+                    scheduledAt: formState.scheduledAt,
+                    durationMinutes: Number(formState.durationMinutes),
+                    capacity: Number(formState.capacity),
+                    meetingUrl: formState.meetingUrl.trim(),
+                    requirements: formState.requirements
+                });
+                setSuccessMessage("Radionica je uspješno ažurirana.");
+            } else {
+                const created = await createWorkshop({
+                    title: formState.title.trim(),
+                    description: formState.description.trim(),
+                    scheduledAt: formState.scheduledAt,
+                    durationMinutes: Number(formState.durationMinutes),
+                    capacity: Number(formState.capacity),
+                    meetingUrl: formState.meetingUrl.trim(),
+                    requirements: formState.requirements
+                });
+                setSuccessMessage(`Radionica "${created.title}" je kreirana.`);
+            }
+            closeDialog();
+            setTimeout(() => setSuccessMessage(null), 4000);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Greška pri spremanju radionice.");
+            setTimeout(() => setErrorMessage(null), 5000);
         }
-
-        closeDialog();
-        setTimeout(() => setSuccessMessage(null), 4000);
     };
 
-    const handleRegister = (workshop: LiveWorkshop) => {
+    const handleRegister = async (workshop: LiveWorkshop) => {
         try {
             validateRequirements(workshop.requirements);
-            const registration = registerForWorkshop({
-                workshopId: workshop.id,
-                userId: DEMO_STUDENT.id,
-                userName: DEMO_STUDENT.name
+            const registration = await registerForWorkshop({
+                workshopId: workshop.id
             });
             setSuccessMessage(`Prijavili ste se na radionicu "${workshop.title}".`);
             setSelectedWorkshop(workshop);
@@ -233,60 +226,73 @@ export default function LiveWorkshops() {
             } else {
                 setErrorMessage("Prijava nije uspjela. Pokušajte ponovno.");
             }
-        } finally {
             setTimeout(() => setErrorMessage(null), 5000);
         }
     };
 
-    const validateRequirements = (requirements: WorkshopRequirement[]) => {
-        for (const requirement of requirements) {
-            if (requirement.type === "completedLesson" && requirement.lessonId) {
-                if (!DEMO_STUDENT.completedLessons.includes(requirement.lessonId)) {
-                    throw new Error(`Preduvjet nije ispunjen: ${requirement.description}`);
-                }
-            }
-            if (requirement.type === "completedCourse" && requirement.courseId) {
-                if (!DEMO_STUDENT.completedCourses.includes(requirement.courseId)) {
-                    throw new Error(`Preduvjet nije ispunjen: ${requirement.description}`);
-                }
-            }
+    // TODO: Implementirati provjeru preduvjeta preko API-ja
+    // Za sada samo provjeravamo da li postoje preduvjeti
+    // U budućnosti treba provjeriti da li je korisnik završio lekcije/kurseve
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const validateRequirements = (_requirements: WorkshopRequirement[] | undefined) => {
+        // Placeholder funkcija - implementacija kasnije
+        // requirements se koristi u budućnosti za validaciju
+    };
+
+    const handleSyncCalendar = async (workshop: LiveWorkshop) => {
+        try {
+            await syncCalendar({workshopId: workshop.id});
+            setSuccessMessage(`Termin radionice "${workshop.title}" sinkroniziran je s kalendarom.`);
+            setTimeout(() => setSuccessMessage(null), 4000);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Greška pri sinkronizaciji kalendara.");
+            setTimeout(() => setErrorMessage(null), 5000);
         }
     };
 
-    const handleSyncCalendar = (workshop: LiveWorkshop) => {
-        syncCalendar({workshopId: workshop.id});
-        setSuccessMessage(`Termin radionice "${workshop.title}" sinkroniziran je s mock kalendarom.`);
-        setTimeout(() => setSuccessMessage(null), 4000);
+    const handleSimulateReconnect = async (workshop: LiveWorkshop) => {
+        try {
+            await updateWorkshopStatus({
+                workshopId: workshop.id,
+                status: "in_progress",
+                connectionStatus: "reconnecting"
+            });
+            setShowSimulationMessage(`Radionica "${workshop.title}" pokušava ponovno uspostaviti vezu...`);
+            setTimeout(() => setShowSimulationMessage(null), 4000);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Greška pri ažuriranju statusa.");
+            setTimeout(() => setErrorMessage(null), 5000);
+        }
     };
 
-    const handleSimulateReconnect = (workshop: LiveWorkshop) => {
-        updateWorkshopStatus({
-            workshopId: workshop.id,
-            status: "in_progress",
-            connectionStatus: "reconnecting"
-        });
-        setShowSimulationMessage(`Radionica "${workshop.title}" pokušava ponovno uspostaviti vezu...`);
-        setTimeout(() => setShowSimulationMessage(null), 4000);
+    const handleStartWorkshop = async (workshop: LiveWorkshop) => {
+        try {
+            await updateWorkshopStatus({
+                workshopId: workshop.id,
+                status: "in_progress",
+                connectionStatus: "stable"
+            });
+            setSuccessMessage(`Radionica "${workshop.title}" je započela.`);
+            setTimeout(() => setSuccessMessage(null), 4000);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Greška pri pokretanju radionice.");
+            setTimeout(() => setErrorMessage(null), 5000);
+        }
     };
 
-    const handleStartWorkshop = (workshop: LiveWorkshop) => {
-        updateWorkshopStatus({
-            workshopId: workshop.id,
-            status: "in_progress",
-            connectionStatus: "stable"
-        });
-        setSuccessMessage(`Radionica "${workshop.title}" je započela.`);
-        setTimeout(() => setSuccessMessage(null), 4000);
-    };
-
-    const handleCompleteWorkshop = (workshop: LiveWorkshop) => {
-        updateWorkshopStatus({
-            workshopId: workshop.id,
-            status: "completed",
-            connectionStatus: "stable"
-        });
-        setSuccessMessage(`Radionica "${workshop.title}" je završila.`);
-        setTimeout(() => setSuccessMessage(null), 4000);
+    const handleCompleteWorkshop = async (workshop: LiveWorkshop) => {
+        try {
+            await updateWorkshopStatus({
+                workshopId: workshop.id,
+                status: "completed",
+                connectionStatus: "stable"
+            });
+            setSuccessMessage(`Radionica "${workshop.title}" je završila.`);
+            setTimeout(() => setSuccessMessage(null), 4000);
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : "Greška pri završetku radionice.");
+            setTimeout(() => setErrorMessage(null), 5000);
+        }
     };
 
     const handleSelectWorkshop = (workshop: LiveWorkshop) => {
@@ -317,6 +323,16 @@ export default function LiveWorkshops() {
             </Stack>
 
             <Stack spacing={2} sx={{mt: 3}}>
+                {workshopsLoading && (
+                    <Box sx={{display: "flex", justifyContent: "center", p: 2}}>
+                        <CircularProgress />
+                    </Box>
+                )}
+                {workshopsError && (
+                    <Alert severity="error" onClose={() => {}}>
+                        {workshopsError}
+                    </Alert>
+                )}
                 {successMessage && (
                     <Alert severity="success" onClose={() => setSuccessMessage(null)}>
                         {successMessage}
@@ -351,6 +367,7 @@ export default function LiveWorkshops() {
                             onSimulateReconnect={handleSimulateReconnect}
                             onStart={handleStartWorkshop}
                             onComplete={handleCompleteWorkshop}
+                            session={session}
                         />
                     </Box>
                 )}
@@ -371,6 +388,7 @@ export default function LiveWorkshops() {
                             onSimulateReconnect={handleSimulateReconnect}
                             onStart={handleStartWorkshop}
                             onComplete={handleCompleteWorkshop}
+                            session={session}
                         />
                     </Box>
                 )}
@@ -391,6 +409,7 @@ export default function LiveWorkshops() {
                             onSimulateReconnect={handleSimulateReconnect}
                             onStart={handleStartWorkshop}
                             onComplete={handleCompleteWorkshop}
+                            session={session}
                         />
                     </Box>
                 )}
@@ -510,6 +529,7 @@ export default function LiveWorkshops() {
                 getRegistrationsForWorkshop={getRegistrationsForWorkshop}
                 getUserRegistration={getUserRegistration}
                 clearNotifications={clearNotifications}
+                session={session}
             />
         </Box>
     );
@@ -526,6 +546,7 @@ type WorkshopGridProps = {
     onSimulateReconnect: (workshop: LiveWorkshop) => void;
     onStart: (workshop: LiveWorkshop) => void;
     onComplete: (workshop: LiveWorkshop) => void;
+    session: { user?: { id?: string; name?: string | null } } | null;
 };
 
 const WorkshopGrid = ({
@@ -538,7 +559,8 @@ const WorkshopGrid = ({
     onSyncCalendar,
     onSimulateReconnect,
     onStart,
-    onComplete
+    onComplete,
+    session
 }: WorkshopGridProps) => {
     return (
         <Box
@@ -553,7 +575,9 @@ const WorkshopGrid = ({
         >
             {workshops.map(workshop => {
                 const registrations = getRegistrationsForWorkshop(workshop.id);
-                const userRegistration = getUserRegistration(workshop.id, DEMO_STUDENT.id);
+                const userRegistration = session?.user?.id
+                    ? getUserRegistration(workshop.id, session.user.id)
+                    : undefined;
                 const spotsLeft = workshop.capacity - registrations.length;
 
                 return (
@@ -757,6 +781,7 @@ type WorkshopDetailsDrawerProps = {
     getRegistrationsForWorkshop: ReturnType<typeof useLiveWorkshops>["getRegistrationsForWorkshop"];
     getUserRegistration: ReturnType<typeof useLiveWorkshops>["getUserRegistration"];
     clearNotifications: ReturnType<typeof useLiveWorkshops>["clearNotifications"];
+    session: { user?: { id?: string; name?: string | null } } | null;
 };
 
 const WorkshopDetailsDrawer = ({
@@ -764,14 +789,17 @@ const WorkshopDetailsDrawer = ({
     onClose,
     getRegistrationsForWorkshop,
     getUserRegistration,
-    clearNotifications
+    clearNotifications,
+    session
 }: WorkshopDetailsDrawerProps) => {
     if (!workshop) {
         return null;
     }
 
     const registrations = getRegistrationsForWorkshop(workshop.id);
-    const userRegistration = getUserRegistration(workshop.id, DEMO_STUDENT.id);
+    const userRegistration = session?.user?.id
+        ? getUserRegistration(workshop.id, session.user.id)
+        : undefined;
 
     return (
         <Dialog open={Boolean(workshop)} onClose={onClose} maxWidth="md" fullWidth>

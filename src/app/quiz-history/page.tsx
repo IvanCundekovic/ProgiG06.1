@@ -7,7 +7,8 @@ import {
     Paper,
     AppBar,
     Toolbar,
-    Container
+    Container,
+    CircularProgress
 } from "@mui/material";
 import {useRouter} from "next/navigation";
 import {QuizResult} from "../types/quiz";
@@ -21,24 +22,27 @@ export default function QuizHistory() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const loadResults = () => {
+        const loadResults = async () => {
+            if (!session?.user?.id) {
+                setLoading(false);
+                return;
+            }
+
             try {
-                const storedResults = localStorage.getItem("quizResults");
-                if (storedResults) {
-                    const parsedResults = JSON.parse(storedResults) as QuizResult[];
-                    const convertedResults = parsedResults.map((result: QuizResult) => ({
-                        ...result,
-                        completedAt: new Date(result.completedAt)
-                    }));
-                    const userResults = convertedResults.filter((r: QuizResult) =>
-                        session?.user?.id ? r.userId === session.user.id : r.userId === "user1"
-                    );
-                    setResults(userResults);
-                } else {
-                    setResults([]);
+                setLoading(true);
+                const response = await fetch("/api/quiz-results");
+                if (!response.ok) {
+                    throw new Error("Greška pri učitavanju rezultata");
                 }
+                const data = await response.json();
+                const convertedResults = data.map((result: QuizResult) => ({
+                    ...result,
+                    completedAt: new Date(result.completedAt)
+                }));
+                setResults(convertedResults);
             } catch (error) {
                 console.error("Error loading quiz results:", error);
+                setResults([]);
             } finally {
                 setLoading(false);
             }
@@ -91,8 +95,8 @@ export default function QuizHistory() {
                     </Typography>
 
                     {loading ? (
-                        <Box className="quiz-loading">
-                            <Typography>Učitavanje...</Typography>
+                        <Box className="quiz-loading" sx={{display: "flex", justifyContent: "center", p: 4}}>
+                            <CircularProgress />
                         </Box>
                     ) : results.length === 0 ? (
                         <Box className="quiz-empty-state">

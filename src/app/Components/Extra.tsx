@@ -9,7 +9,6 @@ import {
     Button,
     Chip,
     Stack,
-    gridClasses,
     Grid
 } from "@mui/material";
 import QuizDialog from "./QuizDialog";
@@ -264,10 +263,7 @@ export default function Extra() {
                     open={isDialogOpen}
                     onClose={handleCloseQuiz}
                     quiz={selectedLessonQuiz.quiz}
-                    lessonId={selectedLessonQuiz.id}
                     lessonTitle={selectedLessonQuiz.lessonTitle}
-                    courseId={selectedLessonQuiz.courseId}
-                    courseTitle={selectedLessonQuiz.courseTitle}
                 />
             )}
         </Box>

@@ -7,6 +7,7 @@ import {findUserByEmail, verifyPassword} from "@/app/lib/auth-utils";
 
 import {Role} from "@prisma/client";
 import {NextAuthConfig, User} from "next-auth";
+import NextAuth from "next-auth";
 
 interface ExtendedUser extends User {
     id: string;
@@ -89,3 +90,6 @@ export const authOptions: NextAuthConfig = {
         }
     }
 }
+
+// Export auth function for NextAuth v5
+export const {handlers, auth, signIn, signOut} = NextAuth(authOptions);

@@ -1,31 +1,9 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 import type {
     LiveWorkshop,
-    WorkshopNotification,
     WorkshopRegistration,
     WorkshopRequirement
 } from "@/app/types/quiz";
-
-type LiveWorkshopsState = {
-    workshops: LiveWorkshop[];
-    registrations: WorkshopRegistration[];
-};
-
-const STORAGE_KEY = "liveWorkshopsState";
-
-const emptyState: LiveWorkshopsState = {
-    workshops: [],
-    registrations: []
-};
-
-const generateId = () => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-        return crypto.randomUUID();
-    }
-    return `id-${Math.random().toString(16).slice(2)}-${Date.now()}`;
-};
-
-const isBrowser = typeof window !== "undefined";
 
 type CreateWorkshopInput = {
     title: string;
@@ -59,39 +37,59 @@ type UpdateStatusInput = {
     connectionStatus?: LiveWorkshop["lastConnectionStatus"];
 };
 
-export function useLiveWorkshops(initialData?: LiveWorkshopsState) {
-    const [state, setState] = useState<LiveWorkshopsState>(initialData ?? emptyState);
+export function useLiveWorkshops() {
+    const [workshops, setWorkshops] = useState<LiveWorkshop[]>([]);
+    const [registrations, setRegistrations] = useState<WorkshopRegistration[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
+    // Učitaj radionice i registracije
     useEffect(() => {
-        if (!isBrowser || initialData) {
-            return;
-        }
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored) {
+        const loadData = async () => {
             try {
-                const parsed = JSON.parse(stored) as LiveWorkshopsState;
-                setState({
-                    workshops: parsed.workshops ?? [],
-                    registrations: parsed.registrations ?? []
-                });
-            } catch (error) {
-                console.warn("Neuspjelo parsiranje liveWorkshopsState:", error);
+                setLoading(true);
+                setError(null);
+
+                // Učitaj radionice
+                const workshopsResponse = await fetch("/api/workshops");
+                if (!workshopsResponse.ok) {
+                    throw new Error("Greška pri učitavanju radionica");
+                }
+                const workshopsData = await workshopsResponse.json();
+                setWorkshops(workshopsData || []);
+
+                // Učitaj registracije (ne zahtijeva autentifikaciju - vraća prazan array ako nije prijavljen)
+                try {
+                    const registrationsResponse = await fetch("/api/workshop-registrations");
+                    if (registrationsResponse.ok) {
+                        const registrationsData = await registrationsResponse.json();
+                        setRegistrations(registrationsData || []);
+                    } else {
+                        // Ako endpoint vraća grešku, postavi prazan array
+                        console.warn("Nije moguće učitati registracije, koristim prazan array");
+                        setRegistrations([]);
+                    }
+                } catch (regErr) {
+                    // Ako se dogodi greška pri učitavanju registracija, postavi prazan array
+                    console.warn("Greška pri učitavanju registracija:", regErr);
+                    setRegistrations([]);
+                }
+            } catch (err) {
+                console.error("Error loading workshops:", err);
+                setError(err instanceof Error ? err.message : "Greška pri učitavanju podataka");
+                // Postavi prazne podatke u slučaju greške
+                setWorkshops([]);
+                setRegistrations([]);
+            } finally {
+                setLoading(false);
             }
-        }
-    }, [initialData]);
+        };
 
-    useEffect(() => {
-        if (!isBrowser || initialData) {
-            return;
-        }
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }, [initialData, state]);
-
-    const workshops = useMemo(() => state.workshops, [state.workshops]);
-    const registrations = useMemo(() => state.registrations, [state.registrations]);
+        loadData();
+    }, []);
 
     const createWorkshop = useCallback(
-        ({
+        async ({
             title,
             description,
             scheduledAt,
@@ -99,208 +97,238 @@ export function useLiveWorkshops(initialData?: LiveWorkshopsState) {
             capacity,
             meetingUrl,
             requirements,
-            instructorId,
-            instructorName
-        }: CreateWorkshopInput) => {
-            const now = new Date().toISOString();
-            const newWorkshop: LiveWorkshop = {
-                id: generateId(),
-                title,
-                description,
-                scheduledAt,
-                durationMinutes,
-                capacity,
-                meetingUrl,
-                requirements,
-                instructorId,
-                instructorName,
-                status: "upcoming",
-                createdAt: now,
-                updatedAt: now,
-                lastConnectionStatus: "stable"
-            };
+        }: Omit<CreateWorkshopInput, "instructorId" | "instructorName">) => {
+            try {
+                const response = await fetch("/api/workshops", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        scheduledAt,
+                        durationMinutes,
+                        capacity,
+                        meetingUrl,
+                        requirements,
+                    }),
+                });
 
-            setState(prev => ({
-                ...prev,
-                workshops: [...prev.workshops, newWorkshop]
-            }));
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri kreiranju radionice");
+                }
 
-            return newWorkshop;
+                const newWorkshop = await response.json();
+                setWorkshops(prev => [...prev, newWorkshop]);
+                return newWorkshop;
+            } catch (err) {
+                console.error("Error creating workshop:", err);
+                throw err;
+            }
         },
         []
     );
 
     const updateWorkshop = useCallback(
-        ({id, ...updates}: UpdateWorkshopInput) => {
-            const now = new Date().toISOString();
-            setState(prev => ({
-                ...prev,
-                workshops: prev.workshops.map(workshop =>
-                    workshop.id === id
-                        ? {
-                              ...workshop,
-                              ...updates,
-                              updatedAt: now
-                          }
-                        : workshop
-                ),
-                registrations: prev.registrations.map(registration =>
-                    registration.workshopId === id && updates.scheduledAt
-                        ? {
-                              ...registration,
-                              notifications: [
-                                  ...registration.notifications,
-                                  {
-                                      id: generateId(),
-                                      type: "schedule_change",
-                                      message: `Radionica "${updates.title ?? workshopTitle(prev.workshops, id)}" pomaknuta je na ${new Date(
-                                          updates.scheduledAt
-                                      ).toLocaleString("hr-HR")}.`,
-                                      createdAt: now
-                                  } satisfies WorkshopNotification
-                              ]
-                          }
-                        : registration
-                )
-            }));
+        async ({id, ...updates}: UpdateWorkshopInput) => {
+            try {
+                const response = await fetch(`/api/workshops/${id}`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(updates),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri ažuriranju radionice");
+                }
+
+                const updatedWorkshop = await response.json();
+                setWorkshops(prev =>
+                    prev.map(workshop => (workshop.id === id ? updatedWorkshop : workshop))
+                );
+
+                // Ako je promijenjen termin, osvježi registracije
+                if (updates.scheduledAt) {
+                    const registrationsResponse = await fetch(`/api/workshop-registrations?workshopId=${id}`);
+                    if (registrationsResponse.ok) {
+                        const registrationsData = await registrationsResponse.json();
+                        setRegistrations(prev =>
+                            prev.map(reg =>
+                                reg.workshopId === id
+                                    ? registrationsData.find((r: WorkshopRegistration) => r.id === reg.id) || reg
+                                    : reg
+                            )
+                        );
+                    }
+                }
+
+                return updatedWorkshop;
+            } catch (err) {
+                console.error("Error updating workshop:", err);
+                throw err;
+            }
         },
         []
     );
 
-    const updateWorkshopStatus = useCallback(({workshopId, status, connectionStatus}: UpdateStatusInput) => {
-        const now = new Date().toISOString();
-        setState(prev => ({
-            ...prev,
-            workshops: prev.workshops.map(workshop =>
-                workshop.id === workshopId
-                    ? {
-                          ...workshop,
-                          status,
-                          lastConnectionStatus: connectionStatus ?? workshop.lastConnectionStatus,
-                          updatedAt: now
-                      }
-                    : workshop
-            ),
-            registrations:
-                status === "in_progress" || status === "completed" || connectionStatus === "reconnecting"
-                    ? prev.registrations.map(registration =>
-                          registration.workshopId === workshopId
-                              ? {
-                                    ...registration,
-                                    notifications: [
-                                        ...registration.notifications,
-                                        {
-                                            id: generateId(),
-                                            type: connectionStatus === "reconnecting" ? "reconnection" : "general",
-                                            message:
-                                                connectionStatus === "reconnecting"
-                                                    ? `Radionica "${workshopTitle(prev.workshops, workshopId)}" pokušava ponovno uspostaviti vezu.`
-                                                    : status === "in_progress"
-                                                    ? `Radionica "${workshopTitle(prev.workshops, workshopId)}" je započela.`
-                                                    : `Radionica "${workshopTitle(prev.workshops, workshopId)}" je završila.`,
-                                            createdAt: now
-                                        } satisfies WorkshopNotification
-                                    ]
-                                }
-                              : registration
-                      )
-                    : prev.registrations
-        }));
-    }, []);
+    const updateWorkshopStatus = useCallback(
+        async ({workshopId, status, connectionStatus}: UpdateStatusInput) => {
+            try {
+                const response = await fetch(`/api/workshops/${workshopId}/status`, {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        status,
+                        connectionStatus,
+                    }),
+                });
 
-    const registerForWorkshop = useCallback(
-        ({workshopId, userId, userName}: RegisterForWorkshopInput) => {
-            const workshop = state.workshops.find(item => item.id === workshopId);
-            if (!workshop) {
-                throw new Error("Radionica nije pronađena.");
-            }
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri ažuriranju statusa");
+                }
 
-            const currentRegistrations = state.registrations.filter(reg => reg.workshopId === workshopId);
+                const updatedWorkshop = await response.json();
+                setWorkshops(prev =>
+                    prev.map(workshop =>
+                        workshop.id === workshopId ? updatedWorkshop : workshop
+                    )
+                );
 
-            if (currentRegistrations.some(reg => reg.userId === userId)) {
-                throw new Error("Već ste prijavljeni na ovu radionicu.");
-            }
-
-            if (currentRegistrations.length >= workshop.capacity) {
-                throw new Error("Radionica je dostigla maksimalan broj polaznika.");
-            }
-
-            const now = new Date().toISOString();
-            const newRegistration: WorkshopRegistration = {
-                id: generateId(),
-                workshopId,
-                userId,
-                userName,
-                registeredAt: now,
-                notifications: [
-                    {
-                        id: generateId(),
-                        type: "general",
-                        message: `Uspješno ste prijavljeni na radionicu "${workshop.title}".`,
-                        createdAt: now
+                // Ako je status promijenjen, osvježi registracije
+                if (status === "in_progress" || status === "completed" || connectionStatus === "reconnecting") {
+                    const registrationsResponse = await fetch(`/api/workshop-registrations?workshopId=${workshopId}`);
+                    if (registrationsResponse.ok) {
+                        const registrationsData = await registrationsResponse.json();
+                        setRegistrations(prev =>
+                            prev.map(reg =>
+                                reg.workshopId === workshopId
+                                    ? registrationsData.find((r: WorkshopRegistration) => r.id === reg.id) || reg
+                                    : reg
+                            )
+                        );
                     }
-                ]
-            };
+                }
 
-            setState(prev => ({
-                ...prev,
-                registrations: [...prev.registrations, newRegistration]
-            }));
-
-            return newRegistration;
+                return updatedWorkshop;
+            } catch (err) {
+                console.error("Error updating workshop status:", err);
+                throw err;
+            }
         },
-        [state.registrations, state.workshops]
+        []
     );
 
-    const syncCalendar = useCallback(({workshopId}: SyncCalendarInput) => {
-        const now = new Date().toISOString();
-        setState(prev => ({
-            ...prev,
-            workshops: prev.workshops.map(workshop =>
-                workshop.id === workshopId
-                    ? {
-                          ...workshop,
-                          calendarSyncedAt: now,
-                          updatedAt: now
-                      }
-                    : workshop
-            )
-        }));
-    }, []);
+    const registerForWorkshop = useCallback(
+        async ({workshopId}: Omit<RegisterForWorkshopInput, "userId" | "userName">) => {
+            try {
+                const response = await fetch("/api/workshop-registrations", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        workshopId,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri prijavi na radionicu");
+                }
+
+                const newRegistration = await response.json();
+                setRegistrations(prev => [...prev, newRegistration]);
+                return newRegistration;
+            } catch (err) {
+                console.error("Error registering for workshop:", err);
+                throw err;
+            }
+        },
+        []
+    );
+
+    const syncCalendar = useCallback(
+        async ({workshopId}: SyncCalendarInput) => {
+            try {
+                // TODO: Implementirati Google Calendar sync API
+                // Za sada samo simulacija
+                const workshop = workshops.find(w => w.id === workshopId);
+                if (workshop) {
+                    const updatedWorkshop = {
+                        ...workshop,
+                        calendarSyncedAt: new Date().toISOString(),
+                    };
+                    setWorkshops(prev =>
+                        prev.map(w => (w.id === workshopId ? updatedWorkshop : w))
+                    );
+                }
+            } catch (err) {
+                console.error("Error syncing calendar:", err);
+                throw err;
+            }
+        },
+        [workshops]
+    );
 
     const getWorkshopById = useCallback(
-        (id: string) => state.workshops.find(workshop => workshop.id === id),
-        [state.workshops]
+        (id: string) => workshops.find(workshop => workshop.id === id),
+        [workshops]
     );
 
     const getRegistrationsForWorkshop = useCallback(
-        (workshopId: string) => state.registrations.filter(reg => reg.workshopId === workshopId),
-        [state.registrations]
+        (workshopId: string) => registrations.filter(reg => reg.workshopId === workshopId),
+        [registrations]
     );
 
     const getUserRegistration = useCallback(
         (workshopId: string, userId: string) =>
-            state.registrations.find(registration => registration.workshopId === workshopId && registration.userId === userId),
-        [state.registrations]
+            registrations.find(
+                registration => registration.workshopId === workshopId && registration.userId === userId
+            ),
+        [registrations]
     );
 
-    const clearNotifications = useCallback((registrationId: string) => {
-        setState(prev => ({
-            ...prev,
-            registrations: prev.registrations.map(registration =>
-                registration.id === registrationId
-                    ? {
-                          ...registration,
-                          notifications: []
-                      }
-                    : registration
-            )
-        }));
-    }, []);
+    const clearNotifications = useCallback(
+        async (registrationId: string) => {
+            try {
+                const response = await fetch(
+                    `/api/workshop-registrations/${registrationId}/notifications/clear`,
+                    {
+                        method: "PUT",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error("Greška pri brisanju notifikacija");
+                }
+
+                // Osvježi registracije
+                const registrationsResponse = await fetch("/api/workshop-registrations");
+                if (registrationsResponse.ok) {
+                    const registrationsData = await registrationsResponse.json();
+                    setRegistrations(registrationsData);
+                }
+            } catch (err) {
+                console.error("Error clearing notifications:", err);
+                throw err;
+            }
+        },
+        []
+    );
 
     return {
         workshops,
         registrations,
+        loading,
+        error,
         createWorkshop,
         updateWorkshop,
         updateWorkshopStatus,
@@ -309,12 +337,6 @@ export function useLiveWorkshops(initialData?: LiveWorkshopsState) {
         getWorkshopById,
         getRegistrationsForWorkshop,
         getUserRegistration,
-        clearNotifications
+        clearNotifications,
     };
 }
-
-const workshopTitle = (workshops: LiveWorkshop[], id: string) => {
-    const found = workshops.find(workshop => workshop.id === id);
-    return found ? found.title : "Radionica";
-};
-

@@ -1,6 +1,3 @@
-// Simplified Prisma schema for Google Calendar integration
-// Basic functionality without bookings
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,51 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==========================================================
-// AUTH.JS / NEXTAUTH MODELS
-// ==========================================================
-
 model User {
-  id String @id @default(cuid())
-
-  // Application fields
-  email        String   @unique
-  passwordHash String?
-  name         String?
-  role         Role     @default(STUDENT)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  // Auth.js required fields
-  emailVerified DateTime?
-  image         String?
-
-  // Relations
+  id                     String                  @id @default(cuid())
+  email                  String                  @unique
+  passwordHash           String?
+  name                   String?
+  role                   Role                    @default(STUDENT)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  emailVerified          DateTime?
+  image                  String?
   accounts               Account[]
-  sessions               Session[]
+  courses                Course[]
   googleCalendarSettings GoogleCalendarSettings?
-  liveWorkshops          LiveWorkshop[] // objava radionica
+  lessonAnswers          LessonAnswer[]
+  lessonQuestions        LessonQuestion[]
+  lessonReviews          LessonReview[]
+  liveWorkshops          LiveWorkshop[]
+  quizResults            QuizResult[]
+  sessions               Session[]
+  workshopRegistrations  WorkshopRegistration[]
 
   @@map("users")
 }
 
 model Account {
-  id                String @id @default(cuid())
+  id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-
-  // Tokens
-  refresh_token String? @db.Text
-  access_token  String? @db.Text
-  expires_at    Int?
-  token_type    String?
-  scope         String?
-  id_token      String? @db.Text
-  session_state String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -65,8 +55,7 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
 }
@@ -80,86 +69,239 @@ model VerificationToken {
   @@map("verification_tokens")
 }
 
-// ==========================================================
-// GOOGLE CALENDAR
-// ==========================================================
-
 model GoogleCalendarSettings {
-  id     String @id @default(cuid())
-  userId String @unique
-
-  // OAuth za Google Calendar
-  accessToken    String   @db.Text
-  refreshToken   String   @db.Text
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  accessToken    String
+  refreshToken   String
   tokenExpiresAt DateTime
-
-  // jedinstveni id
-  calendarId String 
-  scope      String? 
-
-  syncEnabled Boolean @default(true)
-  timeZone    String  @default("Europe/Zagreb")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calendarId     String
+  scope          String?
+  syncEnabled    Boolean  @default(true)
+  timeZone       String   @default("Europe/Zagreb")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("google_calendar_settings")
 }
 
-// radionice
 model LiveWorkshop {
-  id          String   @id @default(cuid())
+  id                    String                 @id @default(cuid())
+  title                 String
+  description           String?
+  startTime             DateTime
+  endTime               DateTime
+  duration              Int
+  timeZone              String                 @default("Europe/Zagreb")
+  instructorId          String
+  maxParticipants       Int
+  currentParticipants   Int                    @default(0)
+  prerequisites         String?
+  difficultyLevel       String?
+  streamingUrl          String?
+  meetingId             String?
+  meetingPassword       String?
+  meetingUrl            String?
+  requiredIngredients   String?
+  requiredEquipment     String?
+  preparationNotes      String?
+  requirements          String?
+  recordingUrl          String?
+  recordingId           String?
+  googleCalendarEventId String?                @unique
+  calendarSyncedAt      DateTime?
+  status                WorkshopStatus         @default(UPCOMING)
+  lastConnectionStatus  String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  instructor            User                   @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  registrations         WorkshopRegistration[]
 
-  title       String
-  description String?  @db.Text
-  
-  startTime   DateTime
-  endTime     DateTime
-  duration    Int // trajanje radionice u minutama
-  timeZone    String @default("Europe/Zagreb")
-  
-  // relacije za instruktora
-  instructorId String
-  instructor   User @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-  
-  maxParticipants     Int
-  currentParticipants Int @default(0)
- 
-  prerequisites   String? @db.Text
-  difficultyLevel String? // beginner, intermediate, advanced
-  
-  // streaming???
-  streamingUrl    String?
-  meetingId       String?
-  meetingPassword String?
-  
-  requiredIngredients String? @db.Text // JSON list
-  requiredEquipment   String? @db.Text // JSON list
-  preparationNotes    String? @db.Text
-  
-  recordingUrl String?
-  recordingId  String?
-  
-  // Google Calendar id
-  googleCalendarEventId String? @unique // Event ID in instructor's Google Calendar
-  
-  // stanje radionice
-  status WorkshopStatus @default(SCHEDULED)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
   @@index([instructorId])
   @@index([startTime])
   @@index([status])
   @@map("live_workshops")
 }
 
-// ==========================================================
-// ENUMI
-// ==========================================================
+model Course {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  instructorId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  instructor   User     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  lessons      Lesson[]
+
+  @@index([instructorId])
+  @@map("courses")
+}
+
+model Lesson {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  content     String?
+  courseId    String
+  videoUrl    String?
+  published   Boolean          @default(false)
+  steps       String?
+  ingredients String?
+  nutrition   String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  questions   LessonQuestion[]
+  reviews     LessonReview[]
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  quiz        Quiz?
+
+  @@index([courseId])
+  @@map("lessons")
+}
+
+model Quiz {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  lessonId    String?      @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  questions   Question[]
+  results     QuizResult[]
+  lesson      Lesson?      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("quizzes")
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  text          String
+  options       String
+  correctAnswer Int
+  quizId        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  quiz          Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
+  @@map("questions")
+}
+
+model QuizResult {
+  id             String   @id @default(cuid())
+  quizId         String
+  userId         String
+  quizTitle      String
+  lessonId       String
+  lessonTitle    String
+  courseId       String
+  courseTitle    String
+  userName       String
+  answers        String
+  score          Int
+  totalQuestions Int
+  percentage     Int
+  isCompleted    Boolean  @default(true)
+  completedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  quiz           Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([quizId])
+  @@index([courseId])
+  @@map("quiz_results")
+}
+
+model LessonReview {
+  id                 String    @id @default(cuid())
+  courseId           String
+  lessonId           String
+  userId             String
+  userName           String
+  rating             Int
+  comment            String?
+  photoDataUrl       String?
+  instructorResponse String?
+  responseAt         DateTime?
+  responseAuthorId   String?
+  responseAuthorName String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lesson             Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([lessonId, userId])
+  @@index([lessonId])
+  @@index([userId])
+  @@map("lesson_reviews")
+}
+
+model LessonQuestion {
+  id        String         @id @default(cuid())
+  courseId  String
+  lessonId  String
+  userId    String
+  userName  String
+  question  String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  answers   LessonAnswer[]
+  lesson    Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+  @@index([userId])
+  @@map("lesson_questions")
+}
+
+model LessonAnswer {
+  id            String         @id @default(cuid())
+  questionId    String
+  responderId   String
+  responderName String
+  message       String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  question      LessonQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  responder     User           @relation(fields: [responderId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+  @@index([responderId])
+  @@map("lesson_answers")
+}
+
+model WorkshopRegistration {
+  id            String                 @id @default(cuid())
+  workshopId    String
+  userId        String
+  userName      String
+  registeredAt  DateTime               @default(now())
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  notifications WorkshopNotification[]
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workshop      LiveWorkshop           @relation(fields: [workshopId], references: [id], onDelete: Cascade)
+
+  @@unique([workshopId, userId])
+  @@index([workshopId])
+  @@index([userId])
+  @@map("workshop_registrations")
+}
+
+model WorkshopNotification {
+  id             String                   @id @default(cuid())
+  registrationId String
+  message        String
+  type           WorkshopNotificationType @default(GENERAL)
+  createdAt      DateTime                 @default(now())
+  registration   WorkshopRegistration     @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@index([registrationId])
+  @@map("workshop_notifications")
+}
 
 enum Role {
   STUDENT
@@ -168,8 +310,14 @@ enum Role {
 }
 
 enum WorkshopStatus {
-  SCHEDULED   
-  IN_PROGRESS 
-  COMPLETED   
-  CANCELLED  
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum WorkshopNotificationType {
+  SCHEDULE_CHANGE
+  RECONNECTION
+  GENERAL
 }
