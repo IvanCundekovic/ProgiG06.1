@@ -1,5 +1,5 @@
-import {redirect} from "next/navigation";
+import Homepage from "./Homepage/page";
 
 export default function Home() {
-    redirect("/Homepage"); // TODO: promjeniti ovo da se prikazuje homepage na /, a ne na /Homepage
+    return <Homepage />;
 }
