@@ -1,0 +1,43 @@
+public class instruktorKorisnik extends obicanKorisnik {
+
+	private int brojUcenika;
+
+	private server server;
+
+	public void createLecture() {
+
+	}
+
+	public void editLecture() {
+
+	}
+
+	public void deleteLecture() {
+
+	}
+
+	public void makeQuiz() {
+
+	}
+
+	public void editQuiz() {
+
+	}
+
+	public void deleteQuiz() {
+
+	}
+
+	public void organizeLiveWorkshop() {
+
+	}
+
+	public void editLiveWorkshop() {
+
+	}
+
+	public void deleteLiveWorkshop() {
+
+	}
+
+}
