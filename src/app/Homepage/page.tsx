@@ -12,7 +12,6 @@ import {
     Toolbar,
     Typography
 } from "@mui/material";
-import CookingRecipes from "../Components/CookingRecipes";
 import Extra from "../Components/Extra";
 import LiveWorkshops from "../Components/LiveWorkshops";
 import VideoLectures from "../Components/VideoLectures";

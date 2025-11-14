@@ -1,11 +1,5 @@
-import {useCallback, useEffect, useMemo, useState} from "react";
-import type {LessonReview, LessonQuestion, LessonAnswer} from "@/app/types/quiz";
-
-type LessonFeedbackStorage = {
-    reviews: LessonReview[];
-    questions: LessonQuestion[];
-    startedLessons: string[];
-};
+import {useCallback, useEffect, useState} from "react";
+import type {LessonReview, LessonQuestion} from "@/app/types/quiz";
 
 type CreateReviewInput = {
     courseId: string;
@@ -13,201 +7,282 @@ type CreateReviewInput = {
     rating: number;
     comment?: string;
     photoDataUrl?: string;
-    userId: string;
-    userName: string;
 };
 
 type CreateQuestionInput = {
     courseId: string;
     lessonId: string;
     question: string;
-    userId: string;
-    userName: string;
 };
 
 type CreateAnswerInput = {
     questionId: string;
-    responderId: string;
-    responderName: string;
     message: string;
 };
 
 type RespondToReviewInput = {
     reviewId: string;
-    responderId: string;
-    responderName: string;
     message: string;
 };
 
-const STORAGE_KEY = "lessonFeedback";
-
-const generateId = () => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-        return crypto.randomUUID();
-    }
-    return `id-${Math.random().toString(16).slice(2)}-${Date.now()}`;
-};
-
-const emptyState: LessonFeedbackStorage = {
-    reviews: [],
-    questions: [],
-    startedLessons: []
-};
+const STORAGE_KEY = "startedLessons";
 
 const isBrowser = typeof window !== "undefined";
 
 export function useLessonFeedback() {
-    const [state, setState] = useState<LessonFeedbackStorage>(emptyState);
+    const [reviews, setReviews] = useState<LessonReview[]>([]);
+    const [questions, setQuestions] = useState<LessonQuestion[]>([]);
+    const [startedLessons, setStartedLessons] = useState<string[]>([]);
+    const [loading, setLoading] = useState(false);
 
+    // Učitaj startedLessons iz localStorage
     useEffect(() => {
         if (!isBrowser) {
             return;
         }
-        const storedValue = window.localStorage.getItem(STORAGE_KEY);
-        if (storedValue) {
+        const stored = window.localStorage.getItem(STORAGE_KEY);
+        if (stored) {
             try {
-                const parsed = JSON.parse(storedValue) as LessonFeedbackStorage;
-                setState({
-                    reviews: parsed.reviews ?? [],
-                    questions: parsed.questions ?? [],
-                    startedLessons: parsed.startedLessons ?? []
-                });
+                const parsed = JSON.parse(stored) as string[];
+                setStartedLessons(parsed);
             } catch (error) {
-                console.warn("Neuspjelo parsiranje lessonFeedback podataka:", error);
-                setState(emptyState);
+                console.warn("Neuspjelo parsiranje startedLessons:", error);
             }
         }
     }, []);
 
+    // Spremi startedLessons u localStorage
     useEffect(() => {
         if (!isBrowser) {
             return;
         }
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }, [state]);
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(startedLessons));
+    }, [startedLessons]);
 
     const markLessonStarted = useCallback((lessonId: string) => {
-        setState(prev => {
-            if (prev.startedLessons.includes(lessonId)) {
+        setStartedLessons(prev => {
+            if (prev.includes(lessonId)) {
                 return prev;
             }
-            return {
-                ...prev,
-                startedLessons: [...prev.startedLessons, lessonId]
-            };
+            return [...prev, lessonId];
         });
     }, []);
 
     const hasStartedLesson = useCallback(
-        (lessonId: string) => state.startedLessons.includes(lessonId),
-        [state.startedLessons]
+        (lessonId: string) => startedLessons.includes(lessonId),
+        [startedLessons]
     );
 
     const addReview = useCallback(
-        ({courseId, lessonId, rating, comment, photoDataUrl, userId, userName}: CreateReviewInput) => {
-            const newReview: LessonReview = {
-                id: generateId(),
-                courseId,
-                lessonId,
-                rating,
-                comment,
-                photoDataUrl,
-                userId,
-                userName,
-                createdAt: new Date().toISOString()
-            };
+        async ({courseId, lessonId, rating, comment, photoDataUrl}: CreateReviewInput) => {
+            try {
+                setLoading(true);
+                const response = await fetch("/api/lesson-reviews", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        courseId,
+                        lessonId,
+                        rating,
+                        comment,
+                        photoDataUrl,
+                    }),
+                });
 
-            setState(prev => ({
-                ...prev,
-                reviews: [...prev.reviews, newReview]
-            }));
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri kreiranju recenzije");
+                }
+
+                const newReview = await response.json();
+                setReviews(prev => [...prev, newReview]);
+                return newReview;
+            } catch (err) {
+                console.error("Error creating review:", err);
+                throw err;
+            } finally {
+                setLoading(false);
+            }
         },
         []
     );
 
     const addQuestion = useCallback(
-        ({courseId, lessonId, question, userId, userName}: CreateQuestionInput) => {
-            const newQuestion: LessonQuestion = {
-                id: generateId(),
-                courseId,
-                lessonId,
-                question,
-                userId,
-                userName,
-                createdAt: new Date().toISOString(),
-                answers: []
-            };
+        async ({courseId, lessonId, question}: CreateQuestionInput) => {
+            try {
+                setLoading(true);
+                const response = await fetch("/api/lesson-questions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        courseId,
+                        lessonId,
+                        question,
+                    }),
+                });
 
-            setState(prev => ({
-                ...prev,
-                questions: [...prev.questions, newQuestion]
-            }));
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri kreiranju pitanja");
+                }
+
+                const newQuestion = await response.json();
+                setQuestions(prev => [...prev, newQuestion]);
+                return newQuestion;
+            } catch (err) {
+                console.error("Error creating question:", err);
+                throw err;
+            } finally {
+                setLoading(false);
+            }
         },
         []
     );
 
-    const addAnswer = useCallback(({questionId, responderId, responderName, message}: CreateAnswerInput) => {
-        setState(prev => ({
-            ...prev,
-            questions: prev.questions.map(question =>
-                question.id === questionId
-                    ? {
-                          ...question,
-                          answers: [
-                              ...question.answers,
-                              {
-                                  id: generateId(),
-                                  questionId,
-                                  responderId,
-                                  responderName,
-                                  message,
-                                  createdAt: new Date().toISOString()
-                              } satisfies LessonAnswer
-                          ]
-                      }
-                    : question
-            )
-        }));
-    }, []);
+    const addAnswer = useCallback(
+        async ({questionId, message}: CreateAnswerInput) => {
+            try {
+                setLoading(true);
+                const response = await fetch("/api/lesson-answers", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        questionId,
+                        message,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri kreiranju odgovora");
+                }
+
+                const newAnswer = await response.json();
+                setQuestions(prev =>
+                    prev.map(question =>
+                        question.id === questionId
+                            ? {
+                                  ...question,
+                                  answers: [...question.answers, newAnswer],
+                              }
+                            : question
+                    )
+                );
+                return newAnswer;
+            } catch (err) {
+                console.error("Error creating answer:", err);
+                throw err;
+            } finally {
+                setLoading(false);
+            }
+        },
+        []
+    );
 
     const respondToReview = useCallback(
-        ({reviewId, responderId, responderName, message}: RespondToReviewInput) => {
-            setState(prev => ({
-                ...prev,
-                reviews: prev.reviews.map(review =>
-                    review.id === reviewId
-                        ? {
-                              ...review,
-                              instructorResponse: message,
-                              responseAuthorId: responderId,
-                              responseAuthorName: responderName,
-                              responseAt: new Date().toISOString()
-                          }
-                        : review
-                )
-            }));
+        async ({reviewId, message}: RespondToReviewInput) => {
+            try {
+                setLoading(true);
+                const response = await fetch(`/api/lesson-reviews/${reviewId}/respond`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        message,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || "Greška pri odgovaranju na recenziju");
+                }
+
+                const updatedReview = await response.json();
+                setReviews(prev =>
+                    prev.map(review => (review.id === reviewId ? updatedReview : review))
+                );
+                return updatedReview;
+            } catch (err) {
+                console.error("Error responding to review:", err);
+                throw err;
+            } finally {
+                setLoading(false);
+            }
         },
         []
     );
+
+    // Učitaj recenzije za lekciju
+    const loadLessonReviews = useCallback(async (courseId: string, lessonId: string) => {
+        try {
+            const response = await fetch(
+                `/api/lesson-reviews?courseId=${courseId}&lessonId=${lessonId}`
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setReviews(prev => {
+                    // Ukloni stare recenzije za ovu lekciju i dodaj nove
+                    const filtered = prev.filter(
+                        r => !(r.courseId === courseId && r.lessonId === lessonId)
+                    );
+                    return [...filtered, ...data];
+                });
+                return data;
+            }
+        } catch (err) {
+            console.error("Error loading lesson reviews:", err);
+        }
+        return [];
+    }, []);
+
+    // Učitaj pitanja za lekciju
+    const loadLessonQuestions = useCallback(async (courseId: string, lessonId: string) => {
+        try {
+            const response = await fetch(
+                `/api/lesson-questions?courseId=${courseId}&lessonId=${lessonId}`
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setQuestions(prev => {
+                    // Ukloni stara pitanja za ovu lekciju i dodaj nova
+                    const filtered = prev.filter(
+                        q => !(q.courseId === courseId && q.lessonId === lessonId)
+                    );
+                    return [...filtered, ...data];
+                });
+                return data;
+            }
+        } catch (err) {
+            console.error("Error loading lesson questions:", err);
+        }
+        return [];
+    }, []);
 
     const getLessonReviews = useCallback(
         (courseId: string, lessonId: string) =>
-            state.reviews.filter(review => review.courseId === courseId && review.lessonId === lessonId),
-        [state.reviews]
+            reviews.filter(review => review.courseId === courseId && review.lessonId === lessonId),
+        [reviews]
     );
 
     const getUserReview = useCallback(
         (courseId: string, lessonId: string, userId: string) =>
-            state.reviews.find(
+            reviews.find(
                 review => review.courseId === courseId && review.lessonId === lessonId && review.userId === userId
             ),
-        [state.reviews]
+        [reviews]
     );
 
     const getLessonQuestions = useCallback(
         (courseId: string, lessonId: string) =>
-            state.questions.filter(question => question.courseId === courseId && question.lessonId === lessonId),
-        [state.questions]
+            questions.filter(question => question.courseId === courseId && question.lessonId === lessonId),
+        [questions]
     );
 
     const getAverageRating = useCallback(
@@ -227,23 +302,23 @@ export function useLessonFeedback() {
         [getLessonReviews]
     );
 
-    const getStartedLessons = useMemo(() => state.startedLessons, [state.startedLessons]);
-
     return {
-        reviews: state.reviews,
-        questions: state.questions,
-        startedLessons: getStartedLessons,
+        reviews,
+        questions,
+        startedLessons,
+        loading,
         markLessonStarted,
         hasStartedLesson,
         addReview,
         addQuestion,
         addAnswer,
+        respondToReview,
+        loadLessonReviews,
+        loadLessonQuestions,
         getLessonReviews,
         getLessonQuestions,
         getAverageRating,
         getReviewCount,
         getUserReview,
-        respondToReview
     };
 }
-
