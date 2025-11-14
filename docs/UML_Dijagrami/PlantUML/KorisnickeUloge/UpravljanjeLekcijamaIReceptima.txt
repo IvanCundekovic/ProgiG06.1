@@ -1,0 +1,37 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC8: Upravljanje lekcijama i receptima
+
+actor "Instruktor" as Instructor
+actor "Baza podataka" as DB
+
+rectangle "Sustav" {
+  (UC8 - Upravljanje lekcijama i receptima)
+  (UC8.1 - Kreiranje nove lekcije)
+  (UC8.1.1 - Dodavanje videa)
+  (UC8.1.1.1 - Validacija formata i velicine videa)
+  (UC8.1.2 - Dodavanje recepta)
+  (UC8.1.2.1 - Generiranje kupovne liste)
+  (UC8.2 - Spremanje lekcije i povezivanje s tecajem)
+}
+
+
+Instructor --> (UC8 - Upravljanje lekcijama i receptima)
+
+
+(UC8 - Upravljanje lekcijama i receptima) ..> (UC8.1 - Kreiranje nove lekcije) : <<include>>
+(UC8 - Upravljanje lekcijama i receptima) ..> (UC8.2 - Spremanje lekcije i povezivanje s tecajem) : <<include>>
+
+
+(UC8.1 - Kreiranje nove lekcije) ..> (UC8.1.1 - Dodavanje videa) : <<include>>
+(UC8.1 - Kreiranje nove lekcije) ..> (UC8.1.2 - Dodavanje recepta) : <<include>>
+(UC8.1.2 - Dodavanje recepta) <.. (UC8.1.2.1 - Generiranje kupovne liste) : <<extend>>
+
+
+(UC8.1.1.1 - Validacija formata i velicine videa) ..> (UC8.1.1 - Dodavanje videa) : <<extend>>
+
+
+(UC8.2 - Spremanje lekcije i povezivanje s tecajem) --> DB : Pohrana podataka
+@enduml

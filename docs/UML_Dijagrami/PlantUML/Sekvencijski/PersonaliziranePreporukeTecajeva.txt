@@ -1,0 +1,23 @@
+@startuml
+title Personalizirane preporuke tečajeva
+
+actor Polaznik
+participant "Web aplikacija" as UI
+database "Baza podataka" as DB
+
+Polaznik -> UI : Otvara stranicu s preporukama
+UI -> DB : Dohvati profil korisnika
+DB --> UI : Profil korisnika
+UI -> DB : Dohvati povijest aktivnosti
+DB --> UI : Povijest aktivnosti
+
+alt Dovoljno podataka
+  UI -> UI : Analizira profil i povijest
+  UI -> DB : Dohvati preporučene tečajeve
+  DB --> UI : Predloženi tečajevi
+  UI --> Polaznik : Prikaz personaliziranih tečajeva
+else Nedovoljno podataka
+  UI -> DB : Dohvati opće preporuke
+  DB --> UI : Popularni tečajevi
+  UI --> Polaznik : Prikaz općih preporuka
+end

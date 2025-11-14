@@ -1,0 +1,34 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC7: Kreiranje i uređivanje tečajeva
+
+actor "Instruktor" as Instructor
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC7 - Kreiranje i uređivanje tečajeva)
+  (UC7.1 - Unos osnovnih podataka o tečaju)
+  (UC7.2 - Dodavanje modula i lekcija)
+  (UC7.3 - Spremanje podataka u bazu)
+  (UC7.1.1 - Upozorenje o nedostajućim podacima)
+  (UC7.4 - Odbijen pristup - instruktor nije verificiran)
+}
+
+
+Instructor --> (UC7 - Kreiranje i uređivanje tečajeva)
+
+
+(UC7 - Kreiranje i uređivanje tečajeva) ..> (UC7.1 - Unos osnovnih podataka o tečaju) : <<include>>
+(UC7 - Kreiranje i uređivanje tečajeva) ..> (UC7.2 - Dodavanje modula i lekcija) : <<include>>
+(UC7 - Kreiranje i uređivanje tečajeva) ..> (UC7.3 - Spremanje podataka u bazu) : <<include>>
+
+
+(UC7.1.1 - Upozorenje o nedostajućim podacima) ..> (UC7.1 - Unos osnovnih podataka o tečaju) : <<extend>>
+(UC7.4 - Odbijen pristup - instruktor nije verificiran) ..> (UC7 - Kreiranje i uređivanje tečajeva) : <<extend>>
+
+
+(UC7.3 - Spremanje podataka u bazu) --> DB : Pohrana podataka
+
+@enduml

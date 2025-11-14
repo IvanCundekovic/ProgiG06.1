@@ -1,0 +1,39 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC14: Pretraga i filtriranje sadrzaja
+
+actor "Polaznik" as Student
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC14 - Pretraga i filtriranje sadrzaja)
+  (UC14.1 - Unos kriterija pretrage)
+  (UC14.1.1 - Unos kljucnih rijeci)
+  (UC14.1.2 - Filtri)
+  (UC14.2 - Dohvat rezultata)
+  (UC14.3 - Prikaz rezultata pretrage)
+  (UC14.4 - Dodatno podesavanje filtara i kljucnih rijeci)
+  (UC14.2.1 - Nema rezultata pretrage)
+}
+
+
+Student --> (UC14 - Pretraga i filtriranje sadrzaja)
+
+
+(UC14 - Pretraga i filtriranje sadrzaja) ..> (UC14.1 - Unos kriterija pretrage) : <<include>>
+(UC14 - Pretraga i filtriranje sadrzaja) ..> (UC14.2 - Dohvat rezultata) : <<include>>
+(UC14 - Pretraga i filtriranje sadrzaja) ..> (UC14.3 - Prikaz rezultata pretrage) : <<include>>
+
+
+(UC14.1.1 - Unos kljucnih rijeci) --|> (UC14.1 - Unos kriterija pretrage)
+(UC14.1.2 - Filtri) --|> (UC14.1 - Unos kriterija pretrage)
+(UC14.4 - Dodatno podesavanje filtara i kljucnih rijeci) <.. (UC14 - Pretraga i filtriranje sadrzaja) : <<include>>
+
+(UC14.2.1 - Nema rezultata pretrage) ..> (UC14.2 - Dohvat rezultata) : <<extend>>
+
+
+(UC14.2 - Dohvat rezultata) --> DB : Upit s primijenjenim kriterijima
+
+@enduml

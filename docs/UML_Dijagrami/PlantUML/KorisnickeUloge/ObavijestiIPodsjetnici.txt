@@ -1,0 +1,36 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC16: Obavijesti i podsjetnici
+
+actor "Korisnik" as User
+actor "Baza podataka" as DB #gray
+actor "Vanjski servis (e-mail / push)" as Notify #gray
+
+rectangle "Sustav" {
+  (UC16 - Obavijesti i podsjetnici)
+  (UC16.1 - Provjera novih dogadaja)
+  (UC16.2 - Generiranje obavijesti)
+  (UC16.3 - Distribucija obavijesti korisnicima)
+  (UC16.3.1 - Korisnik nije dopustio obavijesti)
+  (UC16.3.2 - E-mail servis nije dostupan)
+}
+
+
+User <-- (UC16 - Obavijesti i podsjetnici)
+
+
+(UC16 - Obavijesti i podsjetnici) ..> (UC16.1 - Provjera novih dogadaja) : <<include>>
+(UC16 - Obavijesti i podsjetnici) ..> (UC16.2 - Generiranje obavijesti) : <<include>>
+(UC16 - Obavijesti i podsjetnici) ..> (UC16.3 - Distribucija obavijesti korisnicima) : <<include>>
+
+
+(UC16.3.1 - Korisnik nije dopustio obavijesti) ..> (UC16.3 - Distribucija obavijesti korisnicima) : <<extend>>
+(UC16.3.2 - E-mail servis nije dostupan) ..> (UC16.3 - Distribucija obavijesti korisnicima) : <<extend>>
+
+
+(UC16.1 - Provjera novih dogadaja) --> DB : Dohvat novih promjena
+(UC16.3 - Distribucija obavijesti korisnicima) --> Notify : Slanje e-mail / push poruka
+
+@enduml

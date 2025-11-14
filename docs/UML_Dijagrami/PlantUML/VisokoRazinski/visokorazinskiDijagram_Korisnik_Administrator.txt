@@ -1,0 +1,61 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title Visokorazinski dijagram obrazaca uporabe (s pasivnim akterima)
+
+actor "Korisnik" as User
+actor "Polaznik" as Student
+actor "Instruktor" as Instructor
+actor "Administrator" as Admin
+
+User <|-- Student
+User <|-- Instructor
+
+
+actor "OAuth servis" as OAuth #gray
+actor "E-mail" as Notify #gray
+actor "Baza podataka" as DB #gray
+
+rectangle "Cooking class" {
+  (UC1 - Registracija korisnika)
+  (UC2 - Prijava i odjava korisnika)
+  (UC3 - Upravljanje ulogama)
+  (UC4 - Kreiranje i uređivanje korisničkog profila)
+  (UC5 - Promjena lozinke pri prvom prijavljivanju)
+  (UC12 - Administracija sustava)
+  (UC16 - Obavijesti i podsjetnici)
+}
+
+
+
+User --> (UC1 - Registracija korisnika)
+User --> (UC2 - Prijava i odjava korisnika)
+User --> (UC4 - Kreiranje i uređivanje korisničkog profila)
+User --> (UC5 - Promjena lozinke pri prvom prijavljivanju)
+
+
+Admin --> (UC3 - Upravljanje ulogama)
+
+Admin --> (UC12 - Administracija sustava)
+
+
+
+(UC1 - Registracija korisnika) --> OAuth
+(UC2 - Prijava i odjava korisnika) --> OAuth
+(UC1 - Registracija korisnika) --> DB
+(UC2 - Prijava i odjava korisnika) --> DB
+(UC2 - Prijava i odjava korisnika) --> Notify
+(UC1 - Registracija korisnika) --> Notify
+
+
+(UC3 - Upravljanje ulogama) --> DB
+
+(UC4 - Kreiranje i uređivanje korisničkog profila) --> DB
+(UC5 - Promjena lozinke pri prvom prijavljivanju) --> DB
+
+(UC12 - Administracija sustava) --> DB
+
+(UC16 - Obavijesti i podsjetnici) --> User
+(UC16 - Obavijesti i podsjetnici) --> Notify
+@enduml
