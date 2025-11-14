@@ -7,6 +7,7 @@ import {findUserByEmail, verifyPassword} from "@/app/lib/auth-utils";
 
 import {Role} from "@prisma/client";
 import {NextAuthConfig, User} from "next-auth";
+import {sendWelcomeEmail} from "@/app/lib/email-service";
 
 interface ExtendedUser extends User {
     id: string;
@@ -87,5 +88,13 @@ export const authOptions: NextAuthConfig = {
             }
             return session;
         }
-    }
+    },
+    events: {
+        async createUser(message) {
+
+            const { user } = message;
+
+            await sendWelcomeEmail(user);
+        },
+    },
 }
