@@ -1,34 +1,84 @@
-# Programsko inženjerstvo
-
-> Ime projekta u naslovu ima cilj opisati namjenu projekta te pomoći u podizanju početnog interesa za projekt prezentirajući osnovnu svrhu projekta.
-> Isključivo ovisi o Vama!
-> 
-> Naravno, nijedan predložak nije idealan za sve projekte jer su potrebe i ciljevi različiti. Ne bojte se naglasiti Vaš cilj u ovoj početnoj stranici projekta, podržat ćemo ga bez obzira usredotočili se Vi više na tenologiju ili marketing.
-> 
-> Zašto ovaj dokument? Samo manji dio timova je do sada propoznao potrebu (a i meni je lakše pratiti Vaš rad).  
+# Kuhaona - Platforma za kuhanje
 
 # Opis projekta
-Ovaj projekt je reultat timskog rada u sklopu projeknog zadatka kolegija [Programsko inženjerstvo](https://www.fer.unizg.hr/predmet/proinz) na Fakultetu elektrotehnike i računarstva Sveučilišta u Zagrebu. 
+Ovaj projekt je rezultat timskog rada u sklopu projektnog zadatka kolegija [Programsko inženjerstvo](https://www.fer.unizg.hr/predmet/proinz) na Fakultetu elektrotehnike i računarstva Sveučilišta u Zagrebu. 
 
-Kratko opisati cilj Vašeg projekta. Vaša motivacija?  (Napomena: odgovor nije »Zato što je to bio zadatak i nismo imali ideje za drugo.«). Koji problem rješavate?
-> Obzirom da je ovo zadani projekt navedite i što želite/jeste novo  naučili.
+**Cilj projekta** je razviti sveobuhvatnu online platformu za kuhanje, nazvanu **Kuhaona**, koja povezuje instruktore kuhanja s polaznicima kroz strukturirane video-lekcije na zahtjev i interaktivne live radionice.
 
-> Dobro izrađen opis omogućuje vam da pokažete svoj rad drugim programerima, kao i potencijalnim poslodavcima. Ne samo da prvi dojam na stranici opisa često razlikuje dobar projekt od lošeg projekta već i predstavlja dobru praksu koju morate savladati.
+Platforma je dizajnirana da omogući:
+* **Strukturirano učenje:** Organizacija sadržaja u tečajeve, module i lekcije.
+* **Personalizaciju:** Preporuke sadržaja temeljene na razini znanja, prehrambenim preferencijama i povijesti aktivnosti.
+* **Interaktivnost:** Kvizovi, zadaci, sustav ocjena i recenzija, te live radionice sa sinkronizacijom kalendara.
+
+**Motivacija i Naučeno:** Kroz projekt primjenjujemo principe programskog inženjerstva u razvoju složenog sustava s više korisničkih uloga. Trenutno je naglasak stavljen na implementaciju modernog full-stack rješenja (Next.js), napredne autentikacije (OAuth 2.0), CI/CD procesa (Vercel) i rada s bazama podataka u oblaku (Supabase/Prisma).
 
 # Funkcijski zahtjevi
-> Navedite ključne zahtjeve Vašeg projekta.
+Funkcijski zahjevi sustava "Kuhaona" obuhvaćaju:
+
+1.  **Uloge u sustavu:** Polaznik, Instruktor i Administrator sustava.
+2.  **Autentikacija i Autorizacija:** Registracija/prijava putem **OAuth 2.0** (Google/Github) ili e-pošte i lozinke. Sustav koristi granularne uloge i audit log.
+3.  **Upravljanje profilima:** Detaljni profili za polaznike (preferencije, alergeni) i instruktore (biografija, specijalizacije), uz verifikaciju instruktora.
+4.  **Struktura Sadržaja:** Organizacija po principu **Tečaj → Modul → Lekcija**. Lekcije uključuju video, pisane korake, mjere, kupovnu listu, kvizove/zadatke i Q&A dio.
+5.  **Live radionice:** Instruktori definiraju rasporede. Platforma nudi sinkronizaciju s vanjskim kalendarima i integraciju streaming servisa.
+6.  **Pretraga i Filtriranje:** Napredna pretraga po sastojcima, alergenima, kuhinji, razini težine, trajanju i tipu. Podrška za prehrambene planove (vegan, keto, bez glutena).
+7.  **Ocjene i Recenzije:** Polaznici ocjenjuju lekcije, tečajeve i instruktore. Administrator moderira sporni sadržaj.
+8.  **Praćenje Napretka i Certifikati:** Praćenje napretka u tečaju (% dovršenosti), provjera znanja kroz kvizove, te izdavanje digitalnog certifikata (PDF) nakon završetka tečaja.
+9.  **Notifikacije:** Transakcijske e-poruke, podsjetnici za live radionice i obavijesti o novim lekcijama (e-mail i push obavijesti).
 
 
 # Tehnologije
+| Komponenta | Tehnologija | Opis |
+| :--- | :--- | :--- |
+| **Full-Stack Framework** | **Next.js** (React) | Korišten kao jedinstveni framework za Frontend i Backend (API rute). |
+| **Korisničko sučelje** | **React & Material UI (MUI)** | Biblioteka React komponenti za implementaciju modernog dizajna. |
+| **Baza podataka** | **PostgreSQL** | Relacijska baza podataka. |
+| **Hosting Baze** | **Supabase** | Cloud hosting i upravljanje PostgreSQL bazom. |
+| **ORM** | **Prisma** | Node.js/TypeScript ORM za siguran i učinkovit pristup bazi podataka. |
+| **Deployment & CI/CD** | **Vercel** | Platforma za automatsko deployanje i kontinuiranu integraciju/isporuku. |
+| **Autentikacija** | **NextAuth.js** | Upravljanje OAuth 2.0 i lokalnom autentikacijom. |
 
-#Instalcija
+# Upute za korištenje i Trenutni Status
+## Aplikacija u produkciji
+Aplikacija je automatski deployana putem CI/CD procesa na: **[kuhaona.vercel.app](https://kuhaona.vercel.app)**
+
+## Završene funkcionalnosti (Trenutni Status)
+> Ovaj dio će biti izmjenjen u toku razvoja projekta te potencijalno neće biti savršeno usklađen u samom trenutku razvoja
+
+Trenutno su implementirane i stabilne sljedeće ključne funkcionalnosti:
+* **Autentikacija:** Registracija i prijava putem **OAuth 2.0** servisa (Google i GitHub).
+* **Lokalna Autentikacija:** Registracija i prijava putem e-pošte i lozinke.
+* **Infrastruktura:** Postavljena je veza s PostgreSQL bazom na Supabase-u pomoću Prisme.
+
+# Instalacija
+Za lokalno pokretanje razvojnog okruženja slijedite ove korake:
+### 1. Kloniranje repozitorija
+```bash
+git clone https://github.com/IvanCundekovic/ProgiG06.1.git
+cd ProgiG06.1
+```
+### 2. Instalacija paketa
+```bash
+npm install
+```
+### 3. Postavljanje varijabli okoline
+Kreirajte .env datoteku u korijenskom direktoriju i postavite sve potrebne varijable za bazu podataka i autentikaciju. Primjerice, trebat će vam DATABASE_URL (za Prisma/Supabase), NEXTAUTH_SECRET, te ključevi za OAuth 2.0 servise (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET itd.).
+### 4. Pokretanje razvojnog servera
+Pokrenite Next.js razvojni server:
+```bash
+npm run dev
+```
+Aplikacija će biti dostupna u vašem pregledniku na adresi http://localhost:3000
+
 # Članovi tima 
-> Popis članova tima/linkovi/ glavni doprinos
->
+* Tomislav Cvitanović
+* Luka Šepec
+* Ivan Cundeković
+* Dino Islamović
+* Leo Žižić
+* Jakša Jurlina
 
 # Kontribucije
 >Pravila ovise o organizaciji tima i su često izdvojena u CONTRIBUTING.md
-
 
 
 # 📝 Kodeks ponašanja [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
