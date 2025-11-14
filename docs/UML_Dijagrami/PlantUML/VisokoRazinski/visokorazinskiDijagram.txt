@@ -1,0 +1,93 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title Visokorazinski dijagram obrazaca uporabe (s pasivnim akterima)
+
+actor "Korisnik" as User
+actor "Polaznik" as Student
+actor "Instruktor" as Instructor
+actor "Administrator" as Admin
+
+User <|-- Student
+User <|-- Instructor
+
+' --- Pasivni akteri (vanjski sustavi) ---
+actor "OAuth servis" as OAuth #gray
+actor "E-mail/Push servis" as Notify #gray
+actor "Video streaming servis" as Video #gray
+actor "Kalendar servis" as Calendar #gray
+actor "Baza podataka" as DB #gray
+
+rectangle "E-learning sustav" {
+  (UC1 - Registracija korisnika)
+  (UC2 - Prijava i odjava korisnika)
+  (UC3 - Upravljanje ulogama)
+  (UC4 - Kreiranje i uređivanje korisničkog profila)
+  (UC5 - Promjena lozinke pri prvom prijavljivanju)
+  (UC6 - Verifikacija instruktora)
+  (UC7 - Kreiranje i uređivanje tečajeva)
+  (UC8 - Upravljanje lekcijama i receptima)
+  (UC9 - Kvizovi i zadaci)
+  (UC10 - Ocjene, recenzije i Q&A)
+  (UC11 - Organizacija live radionica)
+  (UC12 - Administracija sustava)
+  (UC13 - Personalizirane preporuke tečajeva)
+  (UC14 - Pretraga i filtriranje sadržaja)
+  (UC15 - Praćenje napretka, zadatci i certifikati)
+  (UC16 - Obavijesti i podsjetnici)
+}
+
+' --- Aktivni akteri (s lijeve strane) ---
+
+User --> (UC1 - Registracija korisnika)
+User --> (UC2 - Prijava i odjava korisnika)
+User --> (UC4 - Kreiranje i uređivanje korisničkog profila)
+User --> (UC5 - Promjena lozinke pri prvom prijavljivanju)
+
+Student --> (UC9 - Kvizovi i zadaci)
+Student --> (UC10 - Ocjene, recenzije i Q&A)
+Student --> (UC11 - Organizacija live radionica)
+Student --> (UC13 - Personalizirane preporuke tečajeva)
+Student --> (UC14 - Pretraga i filtriranje sadržaja)
+Student --> (UC15 - Praćenje napretka, zadatci i certifikati)
+Student --> (UC16 - Obavijesti i podsjetnici)
+
+Instructor --> (UC6 - Verifikacija instruktora)
+Instructor --> (UC7 - Kreiranje i uređivanje tečajeva)
+Instructor --> (UC8 - Upravljanje lekcijama i receptima)
+Instructor --> (UC9 - Kvizovi i zadaci)
+Instructor --> (UC10 - Ocjene, recenzije i Q&A)
+Instructor --> (UC11 - Organizacija live radionica)
+Instructor --> (UC16 - Obavijesti i podsjetnici)
+
+Admin --> (UC3 - Upravljanje ulogama)
+Admin --> (UC6 - Verifikacija instruktora)
+Admin --> (UC12 - Administracija sustava)
+
+' --- Pasivni akteri (s desne strane) ---
+
+(UC1 - Registracija korisnika) --> OAuth
+(UC2 - Prijava i odjava korisnika) --> OAuth
+
+(UC16 - Obavijesti i podsjetnici) --> Notify
+
+(UC11 - Organizacija live radionica) --> Video
+(UC11 - Organizacija live radionica) --> Calendar
+
+(UC1 - Registracija korisnika) --> DB
+(UC2 - Prijava i odjava korisnika) --> DB
+(UC3 - Upravljanje ulogama) --> DB
+(UC4 - Kreiranje i uređivanje korisničkog profila) --> DB
+(UC5 - Promjena lozinke pri prvom prijavljivanju) --> DB
+(UC7 - Kreiranje i uređivanje tečajeva) --> DB
+(UC8 - Upravljanje lekcijama i receptima) --> DB
+(UC9 - Kvizovi i zadaci) --> DB
+(UC10 - Ocjene, recenzije i Q&A) --> DB
+(UC12 - Administracija sustava) --> DB
+(UC13 - Personalizirane preporuke tečajeva) --> DB
+(UC14 - Pretraga i filtriranje sadržaja) --> DB
+(UC15 - Praćenje napretka, zadatci i certifikati) --> DB
+(UC16 - Obavijesti i podsjetnici) --> DB
+
+@enduml

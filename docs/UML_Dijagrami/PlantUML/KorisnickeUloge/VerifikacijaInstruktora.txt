@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC6: Verifikacija instruktora
+
+actor "Instruktor" as Instructor
+actor "Administrator" as Admin
+
+rectangle "Sustav" {
+  (UC6 - Verifikacija instruktora)
+  (UC6.1 - Učitavanje identifikacijskih dokumenata)
+  (UC6.2 - Pregled dokumenata i odluka administratora)
+  (UC6.3 - Ažuriranje statusa profila)
+  (UC6.1.1 - Neuspješan upload)
+  (UC6.2.1 - Odbijanje verifikacije / neispravni dokumenti)
+}
+
+Instructor --> (UC6 - Verifikacija instruktora)
+Admin --> (UC6 - Verifikacija instruktora)
+
+
+(UC6 - Verifikacija instruktora) ..> (UC6.1 - Učitavanje identifikacijskih dokumenata) : <<include>>
+(UC6 - Verifikacija instruktora) ..> (UC6.2 - Pregled dokumenata i odluka administratora) : <<include>>
+(UC6 - Verifikacija instruktora) ..> (UC6.3 - Ažuriranje statusa profila) : <<include>>
+
+
+(UC6.1.1 - Neuspješan upload) ..> (UC6.1 - Učitavanje identifikacijskih dokumenata) : <<extend>>
+(UC6.2.1 - Odbijanje verifikacije / neispravni dokumenti) ..> (UC6.2 - Pregled dokumenata i odluka administratora) : <<extend>>
+
+(UC6.1.1 - Neuspješan upload) --> Instructor : Ponovite upload dokumenata
+
+(UC6.3 - Ažuriranje statusa profila) --> Instructor
+
+@enduml

@@ -1,0 +1,37 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC13: Personalizirane preporuke tecajeva
+
+actor "Polaznik" as Student
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC13 - Personalizirane preporuke tecajeva)
+  (UC13.1 - Analiza korisnickih podataka)
+  (UC13.2 - Generiranje i prikaz preporuka)
+  (UC13.2.1 - Prikaz razloga preporuke)
+  (UC13.3 - Upis na tecaj)
+  (UC13.4 - Nedostatak podataka - prikaz opcih preporuka)
+  (UC13.5 - Nema dostupnih tecajeva)
+}
+
+
+Student --> (UC13 - Personalizirane preporuke tecajeva)
+
+
+(UC13 - Personalizirane preporuke tecajeva) ..> (UC13.1 - Analiza korisnickih podataka) : <<include>>
+(UC13 - Personalizirane preporuke tecajeva) ..> (UC13.2 - Generiranje i prikaz preporuka) : <<include>>
+(UC13.2 - Generiranje i prikaz preporuka) ..> (UC13.2.1 - Prikaz razloga preporuke) : <<include>>
+
+
+(UC13.3 - Upis na tecaj) ..> (UC13.2 - Generiranje i prikaz preporuka) : <<extend>>
+(UC13.4 - Nedostatak podataka - prikaz opcih preporuka) ..> (UC13.1 - Analiza korisnickih podataka) : <<extend>>
+(UC13.5 - Nema dostupnih tecajeva) ..> (UC13.2 - Generiranje i prikaz preporuka) : <<extend>>
+
+
+(UC13.2 - Generiranje i prikaz preporuka) --> DB : Dohvat i prikaz preporuka
+(UC13.3 - Upis na tecaj) --> DB : Evidencija upisa
+
+@enduml

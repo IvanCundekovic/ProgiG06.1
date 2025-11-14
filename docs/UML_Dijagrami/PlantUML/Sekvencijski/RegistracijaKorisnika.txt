@@ -1,0 +1,33 @@
+@startuml
+title Registracija korisnika (e-mail ili OAuth)
+
+actor Korisnik
+participant "Web aplikacija" as UI
+participant "OAuth servis" as OAuth
+database "Baza podataka" as DB
+participant "E-mail servis" as Mail
+
+Korisnik -> UI : Otvara stranicu za registraciju
+alt Registracija putem e-maila
+  Korisnik -> UI : Unosi e-mail i lozinku
+  UI -> DB : Provjera postoji li korisnik
+  alt E-mail već postoji
+    UI --> Korisnik : Poruka o već registriranom e-mailu
+  else Novi korisnik
+    UI -> DB : Kreira novi račun
+    UI -> Mail : Šalje potvrdu registracije
+    Mail --> Korisnik : E-mail potvrda
+    UI --> Korisnik : Registracija uspješna
+  end
+else Registracija putem OAuth servisa
+  Korisnik -> UI : Odabire OAuth prijavu
+  UI -> OAuth : Zahtjev za autentifikaciju
+  alt Autentikacija uspješna
+    OAuth --> UI : Token
+    UI -> DB : Kreira korisnički račun
+    UI --> Korisnik : Registracija uspješna
+  else Autentikacija neuspješna
+    UI --> Korisnik : Poruka o pogrešci
+  end
+end
+@enduml

@@ -1,0 +1,50 @@
+@startuml
+title Pohađanje lekcije, kviz, napredak i certifikat
+
+actor Polaznik
+participant "WebApp/UI" as UI
+database "Baza podataka" as DB
+participant "Evaluator kviza" as Eval
+participant "Generator certifikata (PDF)" as Cert
+
+== Pohađanje lekcije ==
+
+Polaznik -> UI : Otvara lekciju (video/koraci)
+UI -> DB : Dohvati sadržaj lekcije
+DB --> UI : Lekcija
+UI --> Polaznik : Prikazuje sadržaj
+
+== Praćenje napretka ==
+
+Polaznik -> UI : Označi lekciju dovršenom
+UI -> DB : Spremi podatke o završetku
+DB --> UI : Potvrda
+UI --> Polaznik : Status ažuriran
+
+== Kviz/Zadatak ==
+
+Polaznik -> UI : Pokreni kviz/zadatak
+loop Rješavanje
+  Polaznik -> UI : Šalje odgovore/rješenja
+  UI -> Eval : Evaluacija odgovora / provjera uploada
+  Eval --> UI : Rezultat
+  UI -> DB : Spremi rezultat
+end
+UI --> Polaznik : Rezultat kviza
+
+== Provjera tečaja i certifikat ==
+
+Polaznik -> UI : Zahtjev za certifikatom
+UI -> DB : Provjeri dovršenost svih lekcija i zadataka
+DB --> UI : Status dovršenosti
+
+alt Sve dovršeno
+  UI -> Cert : Generiraj PDF certifikat
+  Cert --> UI : PDF certifikat
+  UI -> DB : Spremi certifikat u profil
+  UI --> Polaznik : Certifikat dostupan (preuzimanje)
+else Nedostaje dio sadržaja
+  UI --> Polaznik : Obavijest što nedostaje\n+ progress bar
+end
+
+@enduml

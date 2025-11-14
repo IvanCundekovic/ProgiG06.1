@@ -1,0 +1,43 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC9: Kvizovi i zadaci u lekcijama
+
+actor "Instruktor" as Instructor
+actor "Polaznik" as Student
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC9 - Upravljanje kvizovima i zadacima)
+  (UC9.1 - Dodavanje kviza ili zadatka)
+  (UC9.2 - Rjesavanje kviza od strane polaznika)
+  (UC9.3 - Evaluacija odgovora i prikaz rezultata)
+  (UC9.3.1.1 - Napustio kviz prije zavrsetka)
+  (UC9.3.1.2 - Greska u mrezi pri predaji)
+  (UC9.4 - Spremanje rezultata u profil polaznika)
+  (UC9.5 - Pregled povijesti rezultata)
+  (UC9.3.1 - Rezultat se ne sprema)
+}
+
+
+Instructor --> (UC9 - Upravljanje kvizovima i zadacima)
+Student --> (UC9 - Upravljanje kvizovima i zadacima)
+
+
+(UC9 - Upravljanje kvizovima i zadacima) ..> (UC9.1 - Dodavanje kviza ili zadatka) : <<include>>
+(UC9 - Upravljanje kvizovima i zadacima) ..> (UC9.2 - Rjesavanje kviza od strane polaznika) : <<include>>
+(UC9 - Upravljanje kvizovima i zadacima) ..> (UC9.3 - Evaluacija odgovora i prikaz rezultata) : <<include>>
+(UC9 - Upravljanje kvizovima i zadacima) ..> (UC9.4 - Spremanje rezultata u profil polaznika) : <<include>>
+(UC9 - Upravljanje kvizovima i zadacima) ..> (UC9.5 - Pregled povijesti rezultata) : <<include>>
+
+(UC9.3.1 - Rezultat se ne sprema) ..> (UC9.3 - Evaluacija odgovora i prikaz rezultata) : <<extend>>
+
+(UC9.3.1.1 - Napustio kviz prije zavrsetka) --|> (UC9.3.1 - Rezultat se ne sprema)
+(UC9.3.1.2 - Greska u mrezi pri predaji) --|> (UC9.3.1 - Rezultat se ne sprema)
+
+
+(UC9.4 - Spremanje rezultata u profil polaznika) --> DB : Pohrana rezultata
+(UC9.5 - Pregled povijesti rezultata) --> DB : Dohvat povijesti
+
+@enduml

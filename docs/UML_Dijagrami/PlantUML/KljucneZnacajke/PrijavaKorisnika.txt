@@ -1,0 +1,31 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC2: Prijava i odjava korisnika
+
+actor "Korisnik" as User
+actor "OAuth servis" as OAuth #gray
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC2 - Prijava korisnika)
+  (UC2.1 - Prijava putem e-maila)
+  (UC2.2 - Prijava putem OAuth servisa)
+  (UC2.3 - Neuspješna prijava)
+  (UC2.4 - Odjava korisnika)
+}
+
+User --> (UC2 - Prijava korisnika)
+
+(UC2 - Prijava korisnika) <|-- (UC2.1 - Prijava putem e-maila)
+(UC2 - Prijava korisnika) <|-- (UC2.2 - Prijava putem OAuth servisa)
+
+(UC2.3 - Neuspješna prijava) <.. (UC2 - Prijava korisnika) : <<include>>
+
+(UC2 - Prijava korisnika) ..> (UC2.4 - Odjava korisnika) : <<include>>
+
+(UC2.1 - Prijava putem e-maila) --> DB
+(UC2.2 - Prijava putem OAuth servisa) --> OAuth
+(UC2.3 - Neuspješna prijava) --> User : Prikaz poruke o pogrešci
+@enduml

@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC1: Registracija korisnika (korisnik lijevo)
+
+
+actor "Korisnik" as User
+
+
+rectangle "Registracija korisnika" {
+  (UC1 - Registracija korisnika)
+  (UC1.1 - Registracija putem e-maila)
+  (UC1.2 - Registracija putem OAuth servisa)
+  (UC1.3 - Nemogućnost registracije)
+}
+
+
+actor "Baza podataka" as DB #gray
+actor "E-mail servis" as Mail #gray
+actor "OAuth servis" as OAuth #gray
+
+
+User --> (UC1 - Registracija korisnika)
+
+(UC1 - Registracija korisnika) <|-- (UC1.1 - Registracija putem e-maila)
+(UC1 - Registracija korisnika) <|-- (UC1.2 - Registracija putem OAuth servisa)
+(UC1 - Registracija korisnika) ..> (UC1.3 - Nemogućnost registracije) : <<include>>
+
+(UC1 - Registracija korisnika) --> DB
+(UC1.1 - Registracija putem e-maila) --> Mail
+(UC1.2 - Registracija putem OAuth servisa) --> OAuth
+(UC1.3 - Nemogućnost registracije) --> User : Neuspješna registracija
+
+@enduml
