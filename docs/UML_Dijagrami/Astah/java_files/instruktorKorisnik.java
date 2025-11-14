@@ -1,8 +1,8 @@
 public class instruktorKorisnik extends obicanKorisnik {
 
-	private int brojUcenika;
+	protected int brojUcenika;
 
-	private server server;
+	private frontend frontend;
 
 	public void createLecture() {
 

@@ -1,6 +1,6 @@
 public class obicanKorisnik extends korisnik {
 
-	private server server;
+	private frontend frontend;
 
 	public void saveRecipe() {
 

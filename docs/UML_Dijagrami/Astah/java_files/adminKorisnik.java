@@ -1,6 +1,6 @@
 public class adminKorisnik extends instruktorKorisnik {
 
-	private server server;
+	private frontend frontend;
 
 	public void manageAccount() {
 
