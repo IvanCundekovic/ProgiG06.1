@@ -1,0 +1,27 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC15: Pracenje napretka, zadaci i certifikati
+
+actor "Polaznik" as Student
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC15 - Pracenje napretka, zadaci i certifikati)
+  (UC15.1 - Biljezenje napretka po lekcijama)
+  (UC15.3 - Generiranje digitalnog certifikata)
+  
+  (UC15.3.1 - Zadatci nisu rijeseni - certifikat se ne generira)
+}
+
+Student --> (UC15 - Pracenje napretka, zadaci i certifikati)
+
+(UC15 - Pracenje napretka, zadaci i certifikati) ..> (UC15.1 - Biljezenje napretka po lekcijama) : <<include>>
+(UC15 - Pracenje napretka, zadaci i certifikati) ..> (UC15.3 - Generiranje digitalnog certifikata) : <<include>>
+
+(UC15.3.1 - Zadatci nisu rijeseni - certifikat se ne generira) ..> (UC15.3 - Generiranje digitalnog certifikata) : <<extend>>
+
+(UC15 - Pracenje napretka, zadaci i certifikati) --> DB : Spremanje podataka o napretku i certifikatima
+
+@enduml

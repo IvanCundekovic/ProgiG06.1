@@ -1,0 +1,47 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC11: Organizacija live radionica
+
+actor "Instruktor" as Instructor
+actor "Kalendar servis" as Calendar #gray
+actor "Video servis" as Video #gray
+
+rectangle "Sustav" {
+  (UC11 - Organizacija live radionica)
+  (UC11.1 - Kreiranje nove radionice)
+  (UC11.2 - Sinkronizacija termina s kalendarom)
+  (UC11.3 - Upravljanje prijavama i kapacitetom)
+  (UC11.4 - Pokretanje radionice putem video servisa)
+  (UC11.4.1 - Prekid veze i automatsko ponovno povezivanje)
+  (UC11.3.1 - Nemogucnost prijave)
+  (UC11.3.1.1 - Polaznik nije ispunio preduvjete)
+  (UC11.3.1.2 - Nedovoljan broj mjesta)
+  (UC11.2.1 - Promjena termina i slanje obavijesti)
+}
+
+
+Instructor --> (UC11 - Organizacija live radionica)
+
+
+(UC11 - Organizacija live radionica) ..> (UC11.1 - Kreiranje nove radionice) : <<include>>
+(UC11 - Organizacija live radionica) ..> (UC11.2 - Sinkronizacija termina s kalendarom) : <<include>>
+(UC11 - Organizacija live radionica) ..> (UC11.3 - Upravljanje prijavama i kapacitetom) : <<include>>
+(UC11 - Organizacija live radionica) ..> (UC11.4 - Pokretanje radionice putem video servisa) : <<include>>
+
+
+(UC11.3.1 - Nemogucnost prijave) ..> (UC11.3 - Upravljanje prijavama i kapacitetom) : <<extend>>
+(UC11.2.1 - Promjena termina i slanje obavijesti) ..> (UC11.2 - Sinkronizacija termina s kalendarom) : <<extend>>
+(UC11.4.1 - Prekid veze i automatsko ponovno povezivanje) ..> (UC11.4 - Pokretanje radionice putem video servisa) : <<extend>>
+
+
+(UC11.3.1.1 - Polaznik nije ispunio preduvjete) --|> (UC11.3.1 - Nemogucnost prijave)
+(UC11.3.1.2 - Nedovoljan broj mjesta) --|> (UC11.3.1 - Nemogucnost prijave)
+
+
+(UC11.2 - Sinkronizacija termina s kalendarom) --> Calendar : Kalendar API
+(UC11.4 - Pokretanje radionice putem video servisa) --> Video : Video streaming API
+(UC11.4.1 - Prekid veze i automatsko ponovno povezivanje) --> Video : Ponovno spajanje
+
+@enduml

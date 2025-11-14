@@ -1,0 +1,51 @@
+@startuml
+title Verifikacija instruktora
+
+actor Instruktor
+actor Administrator as Admin
+participant "Web aplikacija" as UI
+database "Baza podataka" as DB
+participant "E-mail/PUSH obavijest" as Notification
+
+== Podnošenje zahtjeva ==
+
+Instruktor -> UI : Pristupa profilu
+UI -> DB : Dohvati trenutni status
+DB --> UI : Status (UNVERIFIED/REJECTED)
+UI --> Instruktor : Prikaz forme za verifikaciju
+
+Instruktor -> UI : Učitava verifikacijske dokumente
+UI -> DB : Spremi dokumente i zahtjev\n(status = PENDING)
+DB --> UI : Potvrda spremanja
+UI -> Notification : Obavijesti administratora\nNovi zahtjev za verifikaciju
+Notification --> Admin : E-mail/PUSH obavijest
+
+== Proces verifikacije ==
+
+Admin -> UI : Pregled verifikacijskih zahtjeva
+UI -> DB : Dohvati listu zahtjeva (PENDING)
+DB --> UI : Lista zahtjeva
+UI --> Admin : Prikaz zahtjeva
+
+Admin -> UI : Otvara detalje zahtjeva
+UI -> DB : Dohvati podatke i dokumente instruktora
+DB --> UI : Podaci i dokumenti
+UI --> Admin : Prikaz dokumentacija\n+ opcije odobri/odbij
+
+alt Zahtjev odobren
+  Admin -> UI : Odobri verifikaciju
+  UI -> DB : Ažuriraj status = APPROVED
+  DB --> UI : Potvrda
+  UI -> Notification : Pošalji obavijest o odobrenju
+  Notification --> Instruktor :  Vaš profil je verificiran
+  
+else Zahtjev odbijen
+  Admin -> UI : Odbij
+  UI -> DB : Ažuriraj status = REJECTED
+  DB --> UI : Potvrda
+  UI -> Notification : Pošalji obavijest o odbijanju
+  Notification --> Instruktor : "Zahtjev odbijen - pogledajte razlog"
+end
+
+
+@enduml

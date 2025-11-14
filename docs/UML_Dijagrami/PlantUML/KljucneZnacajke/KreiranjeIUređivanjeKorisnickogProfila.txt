@@ -1,0 +1,38 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC4: Kreiranje i uređivanje korisničkog profila
+
+actor "Korisnik" as User
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC4 - Kreiranje i uređivanje korisničkog profila)
+  (UC4.1 - Unos ili ažuriranje osobnih podataka)
+  (UC4.2 - Dodavanje biografije i recepata instruktora)
+  (UC4.3 - Greška pri uređivanju profila)
+  (UC4.3.1 - Upozorenje na nepotpuna polja)
+  (UC4.3.2 - Neuspješno spremanje podataka)
+  (UC4.3.3 - Instruktor nije verificiran)
+}
+
+User --> (UC4 - Kreiranje i uređivanje korisničkog profila)
+
+' Obavezni koraci
+(UC4 - Kreiranje i uređivanje korisničkog profila) ..> (UC4.1 - Unos ili ažuriranje osobnih podataka) : <<include>>
+(UC4 - Kreiranje i uređivanje korisničkog profila) ..> (UC4.2 - Dodavanje biografije i recepata instruktora) : <<include>>
+
+' Proširenje grešaka
+(UC4.3 - Greška pri uređivanju profila) ..> (UC4 - Kreiranje i uređivanje korisničkog profila) : <<extend>>
+
+' Generalizacija grešaka
+(UC4.3.1 - Upozorenje na nepotpuna polja) --|> (UC4.3 - Greška pri uređivanju profila)
+(UC4.3.2 - Neuspješno spremanje podataka) --|> (UC4.3 - Greška pri uređivanju profila)
+(UC4.3.3 - Instruktor nije verificiran) --|> (UC4.3 - Greška pri uređivanju profila)
+
+' Komunikacija sa sustavima
+(UC4 - Kreiranje i uređivanje korisničkog profila) --> DB : Spremanje izmjena
+(UC4.3 - Greška pri uređivanju profila) --> User : Prikaz poruke o pogrešci
+
+@enduml

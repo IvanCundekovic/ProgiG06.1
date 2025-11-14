@@ -1,0 +1,41 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC10: Ocjene, recenzije, komentari
+
+actor "Polaznik" as Student
+actor "Instruktor" as Instructor
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC10 - Upravljanje ocjenama, komentarima i pitanjima)
+  (UC10.1 - Ocjenjivanje tecaja ili lekcije)
+  (UC10.2 - Dodavanje komentara i fotografije)
+  (UC10.3 - Odgovor instruktora na komentare i pitanja)
+  (UC10.4 - Prikaz prosjecnih ocjena i recenzija)
+  (UC10.5 - Pohrana i dohvat podataka)
+  (UC10.6 - Ocjenjivanje onemoguceno - lekcija nije zapoceta)
+}
+
+Student --> (UC10 - Upravljanje ocjenama, komentarima i pitanjima)
+Instructor --> (UC10 - Upravljanje ocjenama, komentarima i pitanjima)
+
+
+(UC10 - Upravljanje ocjenama, komentarima i pitanjima) ..> (UC10.1 - Ocjenjivanje tecaja ili lekcije) : <<include>>
+(UC10 - Upravljanje ocjenama, komentarima i pitanjima) ..> (UC10.2 - Dodavanje komentara i fotografije) : <<include>>
+(UC10 - Upravljanje ocjenama, komentarima i pitanjima) ..> (UC10.3 - Odgovor instruktora na komentare i pitanja) : <<include>>
+(UC10 - Upravljanje ocjenama, komentarima i pitanjima) ..> (UC10.4 - Prikaz prosjecnih ocjena i recenzija) : <<include>>
+
+
+(UC10.1 - Ocjenjivanje tecaja ili lekcije) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+(UC10.2 - Dodavanje komentara i fotografije) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+(UC10.3 - Odgovor instruktora na komentare i pitanja) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+(UC10.4 - Prikaz prosjecnih ocjena i recenzija) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+
+
+(UC10.6 - Ocjenjivanje onemoguceno - lekcija nije zapoceta) ..> (UC10.1 - Ocjenjivanje tecaja ili lekcije) : <<extend>>
+
+(UC10.5 - Pohrana i dohvat podataka) --> DB : Spremanje / dohvat informacija
+
+@enduml
