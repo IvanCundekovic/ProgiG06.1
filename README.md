@@ -39,7 +39,7 @@ Funkcijski zahjevi sustava "Kuhaona" obuhvaćaju:
 
 # Upute za korištenje i Trenutni Status
 ## Aplikacija u produkciji
-Aplikacija je automatski deployana putem CI/CD procesa na: **[kuhaona.vercel.app](https://kuhaona.vercel.app)**
+Aplikacija je automatski deployana putem CI/CD procesa na: **[kuhaona.org](https://kuhaona.org)**
 
 ## Završene funkcionalnosti (Trenutni Status)
 > Ovaj dio će biti izmjenjen u toku razvoja projekta te potencijalno neće biti savršeno usklađen u samom trenutku razvoja
