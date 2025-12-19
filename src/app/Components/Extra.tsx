@@ -9,9 +9,12 @@ import {
     Button,
     Chip,
     Stack,
-    Grid
+    Grid,
+    Tabs,
+    Tab,
 } from "@mui/material";
 import QuizDialog from "./QuizDialog";
+import Recommendations from "./Recommendations";
 import type {Quiz} from "@/app/types/quiz";
 import {useRouter} from "next/navigation";
 
@@ -187,6 +190,7 @@ const lessonQuizzes: LessonQuiz[] = [
 export default function Extra() {
     const [selectedLessonQuiz, setSelectedLessonQuiz] = useState<LessonQuiz | null>(null);
     const [isDialogOpen, setDialogOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState(0);
     const router = useRouter();
 
     const handleStartQuiz = (lessonQuiz: LessonQuiz) => {
@@ -201,19 +205,26 @@ export default function Extra() {
 
     return (
         <Box className="extra-container">
-            <Box sx={{display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3}}>
-                <Box>
-                    <Typography variant="h5" gutterBottom>
-                        Kvizovi po video lekcijama
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        Odaberite kviz i provjerite znanje stečeno kroz video lekcije.
-                    </Typography>
-                </Box>
-                <Button variant="outlined" color="primary" onClick={() => router.push("/quiz-history")}>
-                    Povijest kvizova
-                </Button>
-            </Box>
+            <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} sx={{mb: 3}}>
+                <Tab label="Kvizovi" />
+                <Tab label="Preporuke" />
+            </Tabs>
+
+            {activeTab === 0 && (
+                <>
+                    <Box sx={{display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3}}>
+                        <Box>
+                            <Typography variant="h5" gutterBottom>
+                                Kvizovi po video lekcijama
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Odaberite kviz i provjerite znanje stečeno kroz video lekcije.
+                            </Typography>
+                        </Box>
+                        <Button variant="outlined" color="primary" onClick={() => router.push("/quiz-history")}>
+                            Povijest kvizova
+                        </Button>
+                    </Box>
 
             <Box className="extra-quiz-grid">
                 <Grid container spacing = {3} >
@@ -265,6 +276,14 @@ export default function Extra() {
                     quiz={selectedLessonQuiz.quiz}
                     lessonTitle={selectedLessonQuiz.lessonTitle}
                 />
+            )}
+                </>
+            )}
+
+            {activeTab === 1 && (
+                <Box>
+                    <Recommendations />
+                </Box>
             )}
         </Box>
     );

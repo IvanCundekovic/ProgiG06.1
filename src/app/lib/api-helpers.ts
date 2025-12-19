@@ -1,7 +1,7 @@
 // Helper funkcije za konverziju između frontend tipova i Prisma modela
 
 import {Role, WorkshopNotificationType, WorkshopStatus} from "@prisma/client";
-import {auth} from "@/app/auth";
+import {auth} from "@/app/api/auth/[...nextauth]/route";
 
 // Konverzija WorkshopStatus enum-a
 export function frontendToPrismaWorkshopStatus(
@@ -21,6 +21,11 @@ export function frontendToPrismaWorkshopStatus(
   }
 }
 
+/**
+ * Konvertira Prisma workshop status u frontend format
+ * @param status - Prisma WorkshopStatus enum
+ * @returns Frontend status string
+ */
 export function prismaToFrontendWorkshopStatus(
   status: WorkshopStatus
 ): "upcoming" | "in_progress" | "completed" | "cancelled" {
@@ -39,6 +44,11 @@ export function prismaToFrontendWorkshopStatus(
 }
 
 // Konverzija WorkshopNotificationType enum-a
+/**
+ * Konvertira frontend notification type u Prisma enum
+ * @param type - Frontend notification type string
+ * @returns Prisma WorkshopNotificationType enum vrijednost
+ */
 export function frontendToPrismaNotificationType(
   type: "schedule_change" | "reconnection" | "general"
 ): WorkshopNotificationType {
@@ -54,6 +64,11 @@ export function frontendToPrismaNotificationType(
   }
 }
 
+/**
+ * Konvertira Prisma notification type u frontend format
+ * @param type - Prisma WorkshopNotificationType enum
+ * @returns Frontend notification type string
+ */
 export function prismaToFrontendNotificationType(
   type: WorkshopNotificationType
 ): "schedule_change" | "reconnection" | "general" {
@@ -70,6 +85,12 @@ export function prismaToFrontendNotificationType(
 }
 
 // Provjera autorizacije
+/**
+ * Provjerava da li korisnik ima potrebnu ulogu
+ * @param userRole - Trenutna uloga korisnika
+ * @param allowedRoles - Array dozvoljenih uloga
+ * @throws Error ako korisnik nema potrebnu ulogu
+ */
 export function requireRole(
   userRole: Role | undefined,
   allowedRoles: Role[]
@@ -79,6 +100,11 @@ export function requireRole(
   }
 }
 
+/**
+ * Provjerava da li je korisnik autenticiran i vraća korisničke podatke
+ * @returns Object sa userId i userRole
+ * @throws Error ako korisnik nije autenticiran
+ */
 export async function requireAuth(): Promise<{ userId: string; userRole: Role }> {
   const session = await auth();
   if (!session?.user?.id) {

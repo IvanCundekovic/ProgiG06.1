@@ -174,7 +174,7 @@ export default function QuizHistory() {
                                                 Detalji odgovora:
                                             </Typography>
                                             {result.answers.map((answer, index) => {
-                                                // TODO: Učitati pitanja iz API-ja za detaljniji prikaz
+                                                {/* Pitanja se učitavaju iz QuizResult.answers JSON-a */}
                                                 return (
                                                     <Typography
                                                         key={index}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth, requireRole, frontendToPrismaWorkshopStatus, prismaToFrontendWorkshopStatus } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { syncWorkshopToCalendar } from "@/app/lib/google-calendar";
 
 // GET /api/workshops - Dohvati sve radionice
 export async function GET(request: NextRequest) {
@@ -137,6 +138,26 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // F-012: Sinkroniziraj s Google Calendarom (ako je konfiguriran)
+    try {
+      const syncResult = await syncWorkshopToCalendar(userId, {
+        id: workshop.id,
+        title: workshop.title,
+        description: workshop.description,
+        startTime: workshop.startTime,
+        duration: workshop.duration,
+        meetingUrl: workshop.meetingUrl,
+      });
+      if (syncResult.success) {
+        console.log(`Workshop ${workshop.id} synced to Google Calendar: ${syncResult.eventId}`);
+      } else {
+        console.warn(`Failed to sync workshop to Google Calendar: ${syncResult.error}`);
+      }
+    } catch (error) {
+      console.error("Error syncing workshop to Google Calendar:", error);
+      // Ne bacaj grešku - radionica je kreirana, samo sync nije uspio
+    }
 
     // Transformacija za frontend
     const transformedWorkshop = {

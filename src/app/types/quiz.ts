@@ -1,5 +1,5 @@
 // TypeScript modeli za kvizove i lekcije
-// TODO: Ovi modeli će biti zamijenjeni Prisma modelima kada se implementira baza podataka
+// TypeScript tipovi za frontend - mapirani iz Prisma modela
 
 export type Question = {
     id: string;
@@ -38,6 +38,12 @@ export type Lesson = {
     steps?: string[];
     ingredients?: Ingredient[];
     nutrition?: NutritionFact[];
+    // F-015: Polja za pretragu i filtriranje
+    difficultyLevel?: string | null;
+    duration?: number | null;
+    cuisine?: string | null;
+    dietaryTags?: string[] | null;
+    allergens?: string[] | null;
 };
 
 export type Course = {

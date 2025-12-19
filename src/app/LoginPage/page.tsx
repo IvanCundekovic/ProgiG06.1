@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {Box, Button, Checkbox, Container, Divider, FormControlLabel, Paper, TextField, Typography} from "@mui/material";
 import {signIn} from "next-auth/react";
 import Image from "next/image";
@@ -8,6 +8,15 @@ import {useRouter} from "next/navigation";
 
 export default function LoginPage() {
     const router = useRouter();
+    const [availableProviders, setAvailableProviders] = useState<string[]>([]);
+
+    // Učitaj dostupne OAuth providere
+    useEffect(() => {
+        fetch("/api/auth/providers")
+            .then((res) => res.json())
+            .then((data) => setAvailableProviders(data.providers || []))
+            .catch(() => setAvailableProviders([]));
+    }, []);
 
     const [isLoginMode, setIsLoginMode] = useState(true);
 
@@ -163,18 +172,27 @@ export default function LoginPage() {
                     <Typography variant="caption" color="textSecondary" sx={{mt: 1, mb: 0.5}}>
                         {isLoginMode ? "Prijavi se s:" : "Registriraj se s:"}
                     </Typography>
-                    <SocialButton
-                        icon={GoogleIcon}
-                        label={isLoginMode ? "Prijavi se s Google-om" : "Registriraj se s Google-om"}
-                        onClick={() => handleOAuthSignIn('google')}
-                        color="#EA4335"
-                    />
-                    <SocialButton
-                        icon={GitHubIcon}
-                        label={isLoginMode ? "Prijavi se s GitHub-om" : "Registriraj se s GitHub-om"}
-                        onClick={() => handleOAuthSignIn('github')}
-                        color="#333"
-                    />
+                    {availableProviders.includes("google") && (
+                        <SocialButton
+                            icon={GoogleIcon}
+                            label={isLoginMode ? "Prijavi se s Google-om" : "Registriraj se s Google-om"}
+                            onClick={() => handleOAuthSignIn('google')}
+                            color="#EA4335"
+                        />
+                    )}
+                    {availableProviders.includes("github") && (
+                        <SocialButton
+                            icon={GitHubIcon}
+                            label={isLoginMode ? "Prijavi se s GitHub-om" : "Registriraj se s GitHub-om"}
+                            onClick={() => handleOAuthSignIn('github')}
+                            color="#333"
+                        />
+                    )}
+                    {availableProviders.length === 0 && (
+                        <Typography variant="body2" color="text.secondary" sx={{mt: 2, textAlign: "center"}}>
+                            OAuth prijava trenutno nije dostupna. Koristite e-mail i lozinku za prijavu.
+                        </Typography>
+                    )}
 
                     <Divider sx={{my: 2, width: '100%'}}>
                         <Typography variant="caption" color="textSecondary">
@@ -260,7 +278,34 @@ export default function LoginPage() {
                                             disabled={loading}
                                         />
                                     }
-                                    label="Slažem se s uvjetima korištenja"
+                                    label={
+                                        <span>
+                                            Slažem se s{" "}
+                                            <Button
+                                                variant="text"
+                                                size="small"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    window.open("/terms", "_blank");
+                                                }}
+                                                sx={{textTransform: "none", p: 0, minWidth: "auto", textDecoration: "underline"}}
+                                            >
+                                                uvjetima korištenja
+                                            </Button>
+                                            {" "}i{" "}
+                                            <Button
+                                                variant="text"
+                                                size="small"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    window.open("/privacy", "_blank");
+                                                }}
+                                                sx={{textTransform: "none", p: 0, minWidth: "auto", textDecoration: "underline"}}
+                                            >
+                                                politikom privatnosti
+                                            </Button>
+                                        </span>
+                                    }
                                 />
                             </>
                         )}
