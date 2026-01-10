@@ -1,6 +1,6 @@
 "use client";
 
-import {useState, useEffect} from "react";
+import {useEffect, useState} from "react";
 import {Box, Button, Checkbox, Container, Divider, FormControlLabel, Paper, TextField, Typography} from "@mui/material";
 import {signIn} from "next-auth/react";
 import Image from "next/image";
@@ -8,7 +8,7 @@ import {useRouter} from "next/navigation";
 
 export default function LoginPage() {
     const router = useRouter();
-    const [availableProviders, setAvailableProviders] = useState<string[]>([]);
+    const [availableProviders, setAvailableProviders] = useState<string[]>(["google", "github"]);
 
     // Učitaj dostupne OAuth providere
     useEffect(() => {

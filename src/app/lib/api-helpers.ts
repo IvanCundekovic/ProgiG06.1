@@ -1,7 +1,7 @@
 // Helper funkcije za konverziju između frontend tipova i Prisma modela
 
 import {Role, WorkshopNotificationType, WorkshopStatus} from "@prisma/client";
-import {auth} from "@/app/api/auth/[...nextauth]/route";
+import {auth} from "@/app/auth";
 
 // Konverzija WorkshopStatus enum-a
 export function frontendToPrismaWorkshopStatus(
