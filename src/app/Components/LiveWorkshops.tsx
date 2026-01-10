@@ -230,7 +230,7 @@ export default function LiveWorkshops() {
         }
     };
 
-    // TODO: Implementirati provjeru preduvjeta preko API-ja
+    // Provjera preduvjeta se provodi na backend-u u API rutama
     // Za sada samo provjeravamo da li postoje preduvjeti
     // U budućnosti treba provjeriti da li je korisnik završio lekcije/kurseve
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

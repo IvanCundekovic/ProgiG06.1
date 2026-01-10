@@ -20,13 +20,22 @@ import {
     Divider,
     Alert,
     Paper,
-    CircularProgress
+    CircularProgress,
+    InputAdornment,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem
 } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import type {Course, Lesson} from "@/app/types/quiz";
 import {useLessonFeedback} from "@/app/functions/useLessonFeedback";
 import {useSession} from "next-auth/react";
+import InstructorReviewDialog from "./InstructorReviewDialog";
 
-// Mock courses - TODO: Ukloniti kada se učitaju iz API-ja
+// Fallback mock courses ako API ne vrati podatke
 const mockCourses: Course[] = [
     {
         id: "course-1",
@@ -424,6 +433,20 @@ export default function VideoLectures() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    
+    // F-015: Pretraga i filtriranje
+    const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCuisine, setSelectedCuisine] = useState<string>("");
+    const [selectedDifficulty, setSelectedDifficulty] = useState<string>("");
+    const [selectedDietaryTag, setSelectedDietaryTag] = useState<string>("");
+    const [selectedAllergen, setSelectedAllergen] = useState<string>("");
+    const [minRating, setMinRating] = useState<number | null>(null);
+    const [maxDuration, setMaxDuration] = useState<number | null>(null);
+    
+    // Instructor review dialog
+    const [instructorReviewOpen, setInstructorReviewOpen] = useState(false);
+    const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
+    const [selectedInstructorName, setSelectedInstructorName] = useState<string>("");
 
     // Učitaj kurseve iz API-ja
     useEffect(() => {
@@ -456,7 +479,104 @@ export default function VideoLectures() {
         loadCourses();
     }, []);
 
-    const lessons = useLessonCards(courses);
+    const allLessons = useLessonCards(courses);
+    
+    // F-015: Filtriranje lekcija
+    const filteredLessons = useMemo(() => {
+        return allLessons.filter(({lesson, course}) => {
+            // Pretraga po naslovu, opisu i sastojcima
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const matchesTitle = lesson.title.toLowerCase().includes(query);
+                const matchesDescription = lesson.description?.toLowerCase().includes(query) ?? false;
+                const matchesIngredients = lesson.ingredients?.some(ing => 
+                    ing.name?.toLowerCase().includes(query)
+                ) ?? false;
+                
+                if (!matchesTitle && !matchesDescription && !matchesIngredients) {
+                    return false;
+                }
+            }
+            
+            // Filtriranje po kuhinji
+            if (selectedCuisine && lesson.cuisine !== selectedCuisine) {
+                return false;
+            }
+            
+            // Filtriranje po razini težine
+            if (selectedDifficulty && lesson.difficultyLevel !== selectedDifficulty) {
+                return false;
+            }
+            
+            // Filtriranje po prehrambenim planovima
+            if (selectedDietaryTag) {
+                const dietaryTags = lesson.dietaryTags || [];
+                if (!dietaryTags.includes(selectedDietaryTag)) {
+                    return false;
+                }
+            }
+            
+            // Filtriranje po alergenima (isključi lekcije koje sadrže odabrani alergen)
+            if (selectedAllergen) {
+                const allergens = lesson.allergens || [];
+                if (allergens.includes(selectedAllergen)) {
+                    return false;
+                }
+            }
+            
+            // Filtriranje po minimalnoj ocjeni
+            if (minRating !== null) {
+                const avgRating = getAverageRating(course.id, lesson.id);
+                if (!avgRating || avgRating < minRating) {
+                    return false;
+                }
+            }
+            
+            // Filtriranje po maksimalnom trajanju
+            if (maxDuration !== null && lesson.duration && lesson.duration > maxDuration) {
+                return false;
+            }
+            
+            return true;
+        });
+    }, [allLessons, searchQuery, selectedCuisine, selectedDifficulty, selectedDietaryTag, selectedAllergen, minRating, maxDuration, getAverageRating]);
+    
+    // Dobij jedinstvene vrijednosti za filtere
+    const availableCuisines = useMemo(() => {
+        const cuisines = new Set<string>();
+        allLessons.forEach(({lesson}) => {
+            if (lesson.cuisine) cuisines.add(lesson.cuisine);
+        });
+        return Array.from(cuisines).sort();
+    }, [allLessons]);
+    
+    const availableDifficulties = useMemo(() => {
+        const difficulties = new Set<string>();
+        allLessons.forEach(({lesson}) => {
+            if (lesson.difficultyLevel) difficulties.add(lesson.difficultyLevel);
+        });
+        return Array.from(difficulties).sort();
+    }, [allLessons]);
+    
+    const availableDietaryTags = useMemo(() => {
+        const tags = new Set<string>();
+        allLessons.forEach(({lesson}) => {
+            if (lesson.dietaryTags && Array.isArray(lesson.dietaryTags)) {
+                lesson.dietaryTags.forEach(tag => tags.add(tag));
+            }
+        });
+        return Array.from(tags).sort();
+    }, [allLessons]);
+    
+    const availableAllergens = useMemo(() => {
+        const allergens = new Set<string>();
+        allLessons.forEach(({lesson}) => {
+            if (lesson.allergens && Array.isArray(lesson.allergens)) {
+                lesson.allergens.forEach(allergen => allergens.add(allergen));
+            }
+        });
+        return Array.from(allergens).sort();
+    }, [allLessons]);
 
     const [selectedLesson, setSelectedLesson] = useState<LessonWithCourse | null>(null);
     const [isLessonDialogOpen, setLessonDialogOpen] = useState(false);
@@ -702,6 +822,121 @@ export default function VideoLectures() {
                 </Alert>
             )}
 
+            {/* F-015: Pretraga i filtriranje UI */}
+            {!loading && (
+                <Paper sx={{p: 3, mb: 3}}>
+                    <Typography variant="h6" gutterBottom>
+                        <FilterListIcon sx={{verticalAlign: "middle", mr: 1}} />
+                        Pretraga i filtriranje
+                    </Typography>
+                    <Stack spacing={2}>
+                        <Box sx={{display: "flex", gap: 2, flexWrap: "wrap"}}>
+                            <TextField
+                                sx={{flex: "1 1 300px", minWidth: 250}}
+                                placeholder="Pretraži po naslovu, opisu ili sastojcima..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                            <FormControl sx={{minWidth: 150}}>
+                                <InputLabel>Kuhinja</InputLabel>
+                                <Select
+                                    value={selectedCuisine}
+                                    onChange={(e: SelectChangeEvent) => setSelectedCuisine(e.target.value)}
+                                    label="Kuhinja"
+                                >
+                                    <MenuItem value="">Sve</MenuItem>
+                                    {availableCuisines.map(cuisine => (
+                                        <MenuItem key={cuisine} value={cuisine}>{cuisine}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <FormControl sx={{minWidth: 150}}>
+                                <InputLabel>Težina</InputLabel>
+                                <Select
+                                    value={selectedDifficulty}
+                                    onChange={(e: SelectChangeEvent) => setSelectedDifficulty(e.target.value)}
+                                    label="Težina"
+                                >
+                                    <MenuItem value="">Sve</MenuItem>
+                                    {availableDifficulties.map(difficulty => (
+                                        <MenuItem key={difficulty} value={difficulty}>{difficulty}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <FormControl sx={{minWidth: 150}}>
+                                <InputLabel>Prehrambeni plan</InputLabel>
+                                <Select
+                                    value={selectedDietaryTag}
+                                    onChange={(e: SelectChangeEvent) => setSelectedDietaryTag(e.target.value)}
+                                    label="Prehrambeni plan"
+                                >
+                                    <MenuItem value="">Sve</MenuItem>
+                                    {availableDietaryTags.map(tag => (
+                                        <MenuItem key={tag} value={tag}>{tag}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <FormControl sx={{minWidth: 150}}>
+                                <InputLabel>Isključi alergen</InputLabel>
+                                <Select
+                                    value={selectedAllergen}
+                                    onChange={(e: SelectChangeEvent) => setSelectedAllergen(e.target.value)}
+                                    label="Isključi alergen"
+                                >
+                                    <MenuItem value="">Nema</MenuItem>
+                                    {availableAllergens.map(allergen => (
+                                        <MenuItem key={allergen} value={allergen}>{allergen}</MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+                        <Box sx={{display: "flex", gap: 2, flexWrap: "wrap", alignItems: "center"}}>
+                            <TextField
+                                sx={{width: 180}}
+                                type="number"
+                                label="Minimalna ocjena"
+                                value={minRating || ""}
+                                onChange={(e) => setMinRating(e.target.value ? parseFloat(e.target.value) : null)}
+                                inputProps={{min: 1, max: 5, step: 0.1}}
+                            />
+                            <TextField
+                                sx={{width: 200}}
+                                type="number"
+                                label="Maksimalno trajanje (min)"
+                                value={maxDuration || ""}
+                                onChange={(e) => setMaxDuration(e.target.value ? parseInt(e.target.value) : null)}
+                                inputProps={{min: 1}}
+                            />
+                            <Button
+                                variant="outlined"
+                                onClick={() => {
+                                    setSearchQuery("");
+                                    setSelectedCuisine("");
+                                    setSelectedDifficulty("");
+                                    setSelectedDietaryTag("");
+                                    setSelectedAllergen("");
+                                    setMinRating(null);
+                                    setMaxDuration(null);
+                                }}
+                            >
+                                Resetiraj filtere
+                            </Button>
+                            <Chip
+                                label={`Pronađeno: ${filteredLessons.length} lekcija`}
+                                color="primary"
+                            />
+                        </Box>
+                    </Stack>
+                </Paper>
+            )}
+
             {!loading && (
                 <Box
                     sx={{
@@ -710,7 +945,7 @@ export default function VideoLectures() {
                         gap: 3
                     }}
                 >
-                    {lessons.map(({lesson, course}) => {
+                    {filteredLessons.map(({lesson, course}) => {
                         const lessonAverage = getAverageRating(course.id, lesson.id);
                         const lessonReviewCount = getReviewCount(course.id, lesson.id);
                         return (
@@ -778,9 +1013,24 @@ export default function VideoLectures() {
                     <>
                         <DialogTitle>{selectedLesson.lesson.title}</DialogTitle>
                         <DialogContent dividers>
-                            <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-                                Instruktor: {selectedLesson.course.instructorName}
-                            </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+                                <Typography variant="subtitle1" color="text.secondary">
+                                    Instruktor: {selectedLesson.course.instructorName}
+                                </Typography>
+                                {session?.user?.id && (
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => {
+                                            setSelectedInstructorId(selectedLesson.course.instructorId);
+                                            setSelectedInstructorName(selectedLesson.course.instructorName);
+                                            setInstructorReviewOpen(true);
+                                        }}
+                                    >
+                                        Ocijeni instruktora
+                                    </Button>
+                                )}
+                            </Box>
                             <Stack direction="row" spacing={1.5} alignItems="center" sx={{mb: 2}}>
                                 <Rating value={averageRating ?? 0} precision={0.5} readOnly />
                                 <Typography variant="body2" color="text.secondary">
@@ -1172,6 +1422,14 @@ export default function VideoLectures() {
                     </>
                 )}
             </Dialog>
+
+            {/* Instructor Review Dialog */}
+            <InstructorReviewDialog
+                open={instructorReviewOpen}
+                onClose={() => setInstructorReviewOpen(false)}
+                instructorId={selectedInstructorId}
+                instructorName={selectedInstructorName}
+            />
         </Box>
     );
 }

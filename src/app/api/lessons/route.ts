@@ -160,6 +160,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // F-017: Pošalji obavijest o novoj lekciji ako je objavljena
+    if (published) {
+      // Pozovi API endpoint asinkrono (ne blokiramo odgovor)
+      fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/notifications/new-lesson`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonId: lesson.id, courseId }),
+      }).catch((error) => {
+        console.error("Error sending lesson notification:", error);
+        // Ne blokiramo ako obavijest ne uspije
+      });
+    }
+
     // Transformacija za frontend
     const transformedLesson = {
       id: lesson.id,

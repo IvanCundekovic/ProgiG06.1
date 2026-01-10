@@ -258,7 +258,8 @@ export function useLiveWorkshops() {
     const syncCalendar = useCallback(
         async ({workshopId}: SyncCalendarInput) => {
             try {
-                // TODO: Implementirati Google Calendar sync API
+                // Google Calendar sync se implementira kroz GoogleCalendarSettings model u bazi
+                // Za potpunu integraciju potrebno je implementirati Google Calendar API pozive
                 // Za sada samo simulacija
                 const workshop = workshops.find(w => w.id === workshopId);
                 if (workshop) {

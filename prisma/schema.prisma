@@ -17,6 +17,15 @@ model User {
   updatedAt              DateTime                @updatedAt
   emailVerified          DateTime?
   image                  String?
+  // F-006: Promjena lozinke pri prvom prijavljivanju
+  mustChangePassword     Boolean                 @default(false)
+  firstLoginAt           DateTime?
+  // F-007: Verifikacija instruktora
+  isVerified             Boolean                 @default(false)
+  verificationDocuments  String? // JSON array of document URLs
+  verifiedAt             DateTime?
+  verifiedBy             String? // Admin user ID who verified
+  // Relacije
   accounts               Account[]
   courses                Course[]
   googleCalendarSettings GoogleCalendarSettings?
@@ -27,6 +36,11 @@ model User {
   quizResults            QuizResult[]
   sessions               Session[]
   workshopRegistrations  WorkshopRegistration[]
+  // Novi modeli
+  userProfile            UserProfile?
+  instructorProfile      InstructorProfile?
+  progress               Progress[]
+  certificates           Certificate[]
 
   @@map("users")
 }
@@ -132,31 +146,56 @@ model Course {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   instructor   User     @relation(fields: [instructorId], references: [id], onDelete: Cascade)
-  lessons      Lesson[]
+  modules      Module[]
+  lessons      Lesson[] // Deprecated: koristi modules umjesto direktno lessons
 
   @@index([instructorId])
   @@map("courses")
 }
 
-model Lesson {
-  id          String           @id @default(cuid())
+// F-008: Module model između Course i Lesson
+model Module {
+  id          String   @id @default(cuid())
   title       String
   description String?
-  content     String?
   courseId    String
-  videoUrl    String?
-  published   Boolean          @default(false)
-  steps       String?
-  ingredients String?
-  nutrition   String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  questions   LessonQuestion[]
-  reviews     LessonReview[]
-  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  quiz        Quiz?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
 
   @@index([courseId])
+  @@map("modules")
+}
+
+model Lesson {
+  id              String           @id @default(cuid())
+  title           String
+  description     String?
+  content         String?
+  courseId        String // Deprecated: koristi moduleId
+  moduleId        String? // F-008: Povezan sa Module
+  videoUrl        String?
+  published       Boolean          @default(false)
+  steps           String?
+  ingredients     String?
+  nutrition       String?
+  difficultyLevel String? // F-009: Razina težine
+  duration        Int? // Trajanje u minutama
+  cuisine         String? // Tip kuhinje (za filtriranje)
+  dietaryTags     String? // JSON array: vegan, keto, gluten-free, itd.
+  allergens       String? // JSON array alergena
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  questions       LessonQuestion[]
+  reviews         LessonReview[]
+  course          Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module          Module?          @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  quiz            Quiz?
+
+  @@index([courseId])
+  @@index([moduleId])
   @@map("lessons")
 }
 
@@ -320,4 +359,98 @@ enum WorkshopNotificationType {
   SCHEDULE_CHANGE
   RECONNECTION
   GENERAL
+}
+
+// F-004: Korisnički profil
+model UserProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  skillLevel          String? // beginner, intermediate, advanced
+  culinaryPreferences String? // JSON array preferencija
+  allergies           String? // JSON array alergena
+  favoriteCuisines    String? // JSON array omiljenih kuhinja
+  dietaryRestrictions String? // JSON array: vegan, vegetarian, keto, itd.
+  courseHistory       String? // JSON array completed course IDs
+  notes               String? // Bilješke korisnika
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// F-005: Profil instruktora
+model InstructorProfile {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  biography         String?
+  specializations   String? // JSON array specijalizacija
+  recipeList        String? // JSON array recipe IDs
+  averageRating     Float              @default(0)
+  totalReviews      Int                @default(0)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  instructorReviews InstructorReview[]
+
+  @@map("instructor_profiles")
+}
+
+// F-005: Recenzije instruktora
+model InstructorReview {
+  id           String            @id @default(cuid())
+  instructorId String
+  userId       String
+  userName     String
+  rating       Int
+  comment      String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  instructor   InstructorProfile @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  @@unique([instructorId, userId])
+  @@index([instructorId])
+  @@index([userId])
+  @@map("instructor_reviews")
+}
+
+// F-016: Praćenje napretka
+model Progress {
+  id                   String    @id @default(cuid())
+  userId               String
+  courseId             String
+  lessonId             String?
+  moduleId             String?
+  completionPercentage Int       @default(0) // 0-100
+  isCompleted          Boolean   @default(false)
+  startedAt            DateTime  @default(now())
+  completedAt          DateTime?
+  lastAccessedAt       DateTime  @default(now())
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId, lessonId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([lessonId])
+  @@map("progress")
+}
+
+// F-016: Certifikati
+model Certificate {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    String
+  courseTitle String
+  pdfUrl      String? // URL do generiranog PDF-a
+  issuedAt    DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@map("certificates")
 }

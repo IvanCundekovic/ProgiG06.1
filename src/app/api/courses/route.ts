@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth, requireRole } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { getCachedOrFetch } from "@/app/lib/cache";
 
-// GET /api/courses - Dohvati sve kurseve
+/**
+ * GET /api/courses - Dohvati sve kurseve
+ * @returns Array svih tečajeva s lekcijama i instruktorima
+ */
 export async function GET() {
   try {
-    const courses = await prisma.course.findMany({
+    // NF-011: Cache tečajeve na 5 minuta
+    const courses = await getCachedOrFetch("courses:all", async () => {
+      return await prisma.course.findMany({
       include: {
         instructor: {
           select: {
@@ -31,10 +37,11 @@ export async function GET() {
           },
         },
       },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    }, 5 * 60 * 1000); // 5 minuta cache
 
     // Transformacija za frontend
     const transformedCourses = courses.map((course) => ({
@@ -43,11 +50,16 @@ export async function GET() {
       description: course.description || "",
       instructorId: course.instructorId,
       instructorName: course.instructor.name || course.instructor.email,
-      lessons: course.lessons.map((lesson) => ({
-        id: lesson.id,
-        title: lesson.title,
-        description: lesson.description || "",
-        content: lesson.content || "",
+        lessons: course.lessons.map((lesson) => ({
+          id: lesson.id,
+          title: lesson.title,
+          description: lesson.description || "",
+          content: lesson.content || "",
+          difficultyLevel: lesson.difficultyLevel || null,
+          duration: lesson.duration || null,
+          cuisine: lesson.cuisine || null,
+          dietaryTags: lesson.dietaryTags ? JSON.parse(lesson.dietaryTags) : null,
+          allergens: lesson.allergens ? JSON.parse(lesson.allergens) : null,
         videoUrl: lesson.videoUrl || undefined,
         published: lesson.published,
         createdAt: lesson.createdAt,
