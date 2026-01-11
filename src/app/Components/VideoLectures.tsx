@@ -23,9 +23,11 @@ import {
     CircularProgress,
     InputAdornment,
     FormControl,
+    FormControlLabel,
     InputLabel,
     Select,
-    MenuItem
+    MenuItem,
+    Checkbox
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -590,6 +592,7 @@ export default function VideoLectures() {
 
     const selectedCourseId = selectedLesson?.course.id;
     const selectedLessonId = selectedLesson?.lesson.id;
+    const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
 
     const lessonReviews = useMemo(
         () =>
@@ -801,6 +804,112 @@ export default function VideoLectures() {
         }
     };
 
+    const [open, setOpen] = useState(false);
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+
+    const handleCreateCourse = async () => {
+        if (!title.trim()) {
+            alert("Naziv kursa je obavezan");
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/courses", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    title,
+                    description,
+
+                }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.message || "Greška");
+            }
+
+            setTitle("");
+            setDescription("");
+            setOpen(false);
+
+        } catch (err:any) {
+            alert(err.message);
+        }
+    }
+
+    const [openLessonCreate, setOpenLessonCreate] = useState(false);
+    const [lessonCreateLoading, setLessonCreateLoading] = useState(false);
+    const [lessonCreateTitle, setLessonCreateTitle] = useState("");
+    const [lessonCreateDescription, setLessonCreateDescription] = useState("");
+    const [lessonContent, setLessonContent] = useState("");
+    const [courseId, setCourseId] = useState("");
+    const [lessonVideoUrl, setLessonVideoUrl] = useState("");
+    const [lessonPublished, setLessonPublished] = useState(false);
+    const [lessonSteps, setLessonSteps] = useState<string[]>([""]);
+    const [lessonIngredients, setLessonIngredients] = useState<string[]>([""]);
+    const [lessonNutrition, setLessonNutrition] = useState<string[]>([""]);
+
+    const handleCreateLesson = async () => {
+        if (!lessonCreateTitle.trim() || !courseId) {
+            alert("Naziv lekcije i kurs su obavezni");
+            return;
+        }
+
+        setLessonCreateLoading(true);
+
+        try {
+            const res = await fetch("/api/lessons", {
+                method: "POST",
+                headers: {
+                    "Content-Type" : "application/json",
+                },
+                body: JSON.stringify({
+                    title: lessonCreateTitle,
+                    description: lessonCreateDescription,
+                    courseId: courseId,
+                    videoUrl: lessonVideoUrl,
+                    published: lessonPublished,
+                    steps: lessonSteps,
+                    ingredients: lessonIngredients,
+                    nutrition: lessonNutrition
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.message || "Greška"); 
+            }
+            
+            //reset sve
+            setLessonCreateTitle("");
+            setLessonCreateDescription("");
+            setLessonContent("");
+            setCourseId("")
+            setLessonVideoUrl("");
+            setLessonPublished(false);
+            setLessonSteps([""]);
+            setLessonIngredients([""]);
+            setLessonNutrition([""]);
+            setOpenLessonCreate(false);
+
+        } catch (err:any) {
+            alert (err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateArrayItem = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    index: number,
+    value: string
+    ) => {
+        setter(prev => prev.map((v, i) => (i === index ? value : v)));
+    };
+
     return (
         <Box>
             <Typography variant="h4" gutterBottom>
@@ -809,6 +918,168 @@ export default function VideoLectures() {
             <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>
                 Pregledajte lekcije i provjerite znanje na kraju svake lekcije kroz kviz.
             </Typography>
+
+            {isInstructor && (
+                <Button variant="contained" onClick={() => setOpen(true)}>
+                    Novi kurs
+                </Button>
+            )}
+
+            <Dialog open = {open} onClose = {() => setOpen(false)} fullWidth maxWidth = "sm">
+                <DialogTitle> Napravi novi kurs </DialogTitle>
+                <DialogContent>
+                    <Stack spacing = {2} mt = {1}>
+                        <TextField 
+                            label = "Naziv kursa"
+                            value = {title}
+                            onChange = {(e) => setTitle(e.target.value)} 
+                            required
+                            autoFocus
+                        />
+                        <TextField
+                            label="Opis"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            multiline
+                            rows={3}
+                        />
+                        
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button
+                        onClick={handleCreateCourse}
+                        variant="contained"
+                        disabled={loading}
+                    >
+                    {loading ? "Creating..." : "Create"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {isInstructor && (
+                <Button variant="contained" onClick={() => setOpenLessonCreate(true)}>
+                    Nova lekcija
+                </Button>
+            )}
+                <Dialog open = {openLessonCreate} onClose = {() => setOpen(false)} fullWidth maxWidth = "sm">
+                    <DialogTitle>Kreiraj novu lekciju</DialogTitle>
+                    <DialogContent>
+                        <Stack spacing = {2} mt = {1}>
+                            <TextField 
+                                label = "Naziv lekcije"
+                                value = {lessonCreateTitle}
+                                onChange = {(e) => setLessonCreateTitle(e.target.value)}
+                                required
+                            />
+                            <TextField 
+                                label = "Opis"
+                                value = {lessonCreateDescription}
+                                onChange = {(e) => setLessonCreateDescription(e.target.value)}
+                                required  
+                            />
+
+                            <TextField 
+                                label = "Sadržaj"
+                                value = {lessonContent}
+                                onChange = {(e) => setLessonContent(e.target.value)}
+                                required  
+                            />
+                            <FormControl required>
+                                <InputLabel id="course-select-label">
+                                    Course
+                                </InputLabel>
+                                <Select
+                                    labelId="course-select-label"
+                                    value={courseId}
+                                    label="Course"
+                                    onChange={(e) => setCourseId(e.target.value)}
+                                    >
+                                    {courses.map((course) => (
+                                    <MenuItem key={course.id} value={course.id}>
+                                        {course.title}
+                                    </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <TextField 
+                                label = "Video url"
+                                value = {lessonVideoUrl}
+                                onChange = {(e) => setLessonVideoUrl(e.target.value)}
+                                required  
+                            />
+
+                            {lessonSteps.map((step, i) => (
+                                <TextField
+                                    key={`step-${i}`}
+                                    label={`Korak ${i + 1}`}
+                                    value={step}
+                                    onChange={(e) =>
+                                    updateArrayItem(setLessonSteps, i, e.target.value)
+                                    }
+                                    />
+                            ))}
+                            <Button
+                            onClick={() => setLessonSteps(prev => [...prev, ""])}
+                            >
+                            Dodaj korak
+                            </Button>
+                            {lessonIngredients.map((ingredient, i) => (
+                                <TextField
+                                    key={`ingredient-${i}`}
+                                    label={`Sastojak ${i + 1}`}
+                                    value={ingredient}
+                                    onChange={(e) =>
+                                    updateArrayItem(setLessonIngredients, i, e.target.value)
+                                    }
+                                    />
+                            ))}
+                            <Button
+                            onClick={() => setLessonIngredients(prev => [...prev, ""])}
+                            >
+                            Dodaj sastojak
+                            </Button>
+                            {lessonNutrition.map((nutrition, i) => (
+                                <TextField
+                                    key={`nutrition-${i}`}
+                                    label={`Nutricija ${i + 1}`}
+                                    value={nutrition}
+                                    onChange={(e) =>
+                                    updateArrayItem(setLessonNutrition, i, e.target.value)
+                                    }
+                                    />
+                            ))}
+                            <Button
+                            onClick={() => setLessonNutrition(prev => [...prev, ""])}
+                            >
+                            Dodaj nutriciju
+                            </Button>
+                            <FormControlLabel 
+                                control = {
+                                    <Checkbox
+                                    checked = {lessonPublished}
+                                    onChange = {(e) => setLessonPublished(e.target.checked)}
+                                    color = "primary"
+                                    />
+                                }
+                                label = "Objavi"
+                            />
+
+                        </Stack>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenLessonCreate(false)}>Cancel</Button>
+                        <Button
+                            variant="contained"
+                            onClick={handleCreateLesson}
+                            disabled={loading}
+                        >
+                        {loading ? "Creating..." : "Create"}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
 
             {loading && (
                 <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
