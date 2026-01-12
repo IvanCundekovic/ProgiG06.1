@@ -450,34 +450,35 @@ export default function VideoLectures() {
     const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
     const [selectedInstructorName, setSelectedInstructorName] = useState<string>("");
 
+    const loadCourses = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await fetch("/api/courses");
+            if (!response.ok) {
+                throw new Error("Greška pri učitavanju kurseva");
+            }
+            const data = await response.json();
+            // Ako API vraća prazan array ili nema podataka, koristi mock podatke
+            if (Array.isArray(data) && data.length === 0) {
+                console.log("Baza podataka je prazna, koristim mock podatke");
+                setCourses(mockCourses);
+            } else {
+                setCourses(data);
+            }
+        } catch (err) {
+            console.error("Error loading courses:", err);
+            setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
+            // Fallback na mock podatke ako API ne radi
+            setCourses(mockCourses);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Učitaj kurseve iz API-ja
     useEffect(() => {
-        const loadCourses = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const response = await fetch("/api/courses");
-                if (!response.ok) {
-                    throw new Error("Greška pri učitavanju kurseva");
-                }
-                const data = await response.json();
-                // Ako API vraća prazan array ili nema podataka, koristi mock podatke
-                if (Array.isArray(data) && data.length === 0) {
-                    console.log("Baza podataka je prazna, koristim mock podatke");
-                    setCourses(mockCourses);
-                } else {
-                    setCourses(data);
-                }
-            } catch (err) {
-                console.error("Error loading courses:", err);
-                setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
-                // Fallback na mock podatke ako API ne radi
-                setCourses(mockCourses);
-            } finally {
-                setLoading(false);
-            }
-        };
-
+        
         loadCourses();
     }, []);
 
@@ -831,14 +832,26 @@ export default function VideoLectures() {
             if (!res.ok) {
                 throw new Error(data.message || "Greška");
             }
-
+            //reset sve
             setTitle("");
             setDescription("");
             setOpen(false);
+            //loadaj sve opet
+            loadCourses();
 
         } catch (err:any) {
             alert(err.message);
         }
+    }
+
+    type Ingredient = {
+        name: string;
+        amount: string;
+    }
+
+    type Nutrition = {
+        label: string;
+        value: string;
     }
 
     const [openLessonCreate, setOpenLessonCreate] = useState(false);
@@ -850,8 +863,8 @@ export default function VideoLectures() {
     const [lessonVideoUrl, setLessonVideoUrl] = useState("");
     const [lessonPublished, setLessonPublished] = useState(false);
     const [lessonSteps, setLessonSteps] = useState<string[]>([""]);
-    const [lessonIngredients, setLessonIngredients] = useState<string[]>([""]);
-    const [lessonNutrition, setLessonNutrition] = useState<string[]>([""]);
+    const [lessonIngredients, setLessonIngredients] = useState<Ingredient[]>([{name:"", amount:""}]);
+    const [lessonNutrition, setLessonNutrition] = useState<Nutrition[]>([{label:"", value:""}]);
 
     const handleCreateLesson = async () => {
         if (!lessonCreateTitle.trim() || !courseId) {
@@ -891,9 +904,11 @@ export default function VideoLectures() {
             setLessonVideoUrl("");
             setLessonPublished(false);
             setLessonSteps([""]);
-            setLessonIngredients([""]);
-            setLessonNutrition([""]);
+            setLessonIngredients([{name:"", amount:""}]);
+            setLessonNutrition([{label:"", value:""}]);
             setOpenLessonCreate(false);
+            //loadaj sve opet
+            loadCourses()
 
         } catch (err:any) {
             alert (err.message);
@@ -909,6 +924,31 @@ export default function VideoLectures() {
     ) => {
         setter(prev => prev.map((v, i) => (i === index ? value : v)));
     };
+
+    const updateIngredient = (
+    index: number,
+    field: keyof Ingredient,
+    value: string
+    ) => {
+        setLessonIngredients(prev =>
+            prev.map((ing, i) =>
+            i === index ? { ...ing, [field]: value } : ing
+            )
+        );
+    };   
+
+    const updateNutrition = (
+    index: number,
+    field: keyof Nutrition,
+    value: string
+    ) => {
+        setLessonNutrition(prev =>
+            prev.map((nut, i) =>
+            i === index ? { ...nut, [field]: value } : nut
+            )
+        );
+    };
+    
 
     return (
         <Box>
@@ -1027,32 +1067,48 @@ export default function VideoLectures() {
                             Dodaj korak
                             </Button>
                             {lessonIngredients.map((ingredient, i) => (
-                                <TextField
-                                    key={`ingredient-${i}`}
-                                    label={`Sastojak ${i + 1}`}
-                                    value={ingredient}
-                                    onChange={(e) =>
-                                    updateArrayItem(setLessonIngredients, i, e.target.value)
-                                    }
+                               <Stack key={`ingredient-${i}`} direction="row" spacing={1}>
+                                    <TextField 
+                                        label = "Naziv"
+                                        value = {ingredient.name}
+                                        onChange = {(e) => updateIngredient(i, "name", e.target.value)}
+                                        fullWidth
                                     />
+                                    <TextField
+                                        label="Količina"
+                                        value={ingredient.amount}
+                                        onChange={(e) =>
+                                            updateIngredient(i, "amount", e.target.value)
+                                        }
+                                        fullWidth
+                                    />
+                                </Stack>
                             ))}
                             <Button
-                            onClick={() => setLessonIngredients(prev => [...prev, ""])}
+                            onClick={() => setLessonIngredients(prev => [...prev, {name: "", amount: ""}])}
                             >
                             Dodaj sastojak
                             </Button>
                             {lessonNutrition.map((nutrition, i) => (
-                                <TextField
-                                    key={`nutrition-${i}`}
-                                    label={`Nutricija ${i + 1}`}
-                                    value={nutrition}
-                                    onChange={(e) =>
-                                    updateArrayItem(setLessonNutrition, i, e.target.value)
-                                    }
+                                <Stack key={`nutrition-${i}`} direction="row" spacing={1}>
+                                    <TextField 
+                                        label = "Naziv"
+                                        value = {nutrition.label}
+                                        onChange = {(e) => updateNutrition(i, "label", e.target.value)}
+                                        fullWidth
                                     />
+                                    <TextField
+                                        label="Vrijednost"
+                                        value={nutrition.value}
+                                        onChange={(e) =>
+                                            updateNutrition(i, "value", e.target.value)
+                                        }
+                                        fullWidth
+                                    />
+                                </Stack>
                             ))}
                             <Button
-                            onClick={() => setLessonNutrition(prev => [...prev, ""])}
+                            onClick={() => setLessonNutrition(prev => [...prev, {label:"", value: ""}])}
                             >
                             Dodaj nutriciju
                             </Button>
