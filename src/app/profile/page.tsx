@@ -27,6 +27,21 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import type { SelectChangeEvent } from "@mui/material";
 
+// Constants moved outside component to avoid re-creation on each render
+const commonCuisines = ["Talijanska", "Francuska", "Azijska", "Mediteranska", "Meksička", "Indijska"];
+const commonAllergens = ["Gluten", "Laktoza", "Jaja", "Riba", "Školjke", "Orašasti plodovi", "Soja"];
+const commonDietary = ["Vegan", "Vegetarijanska", "Keto", "Bez glutena", "Paleo", "Low-carb"];
+
+// Helper function to safely parse JSON arrays
+const safeParseArray = (value: string | null | undefined): string[] => {
+    if (!value) return [];
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+};
 
 export default function ProfilePage() {
     const { data: session, status } = useSession();
@@ -39,7 +54,7 @@ export default function ProfilePage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
-    // Profile data
+    // Profile data - initialized with proper defaults
     const [name, setName] = useState("");
     const [skillLevel, setSkillLevel] = useState("");
     const [allergies, setAllergies] = useState<string[]>([]);
@@ -61,7 +76,7 @@ export default function ProfilePage() {
         if (status === "authenticated") {
             loadProfile();
         }
-    }, [session, status, router]);
+    }, [status, router]);
 
     const loadProfile = async () => {
         try {
@@ -73,13 +88,17 @@ export default function ProfilePage() {
 
             setName(data.name || "");
             setSkillLevel(data.userProfile?.skillLevel || "");
-            setAllergies(data.userProfile?.allergies ? JSON.parse(data.userProfile.allergies) : []);
-            setFavoriteCuisines(data.userProfile?.favoriteCuisines ? JSON.parse(data.userProfile.favoriteCuisines) : []);
-            setDietaryRestrictions(data.userProfile?.dietaryRestrictions ? JSON.parse(data.userProfile.dietaryRestrictions) : []);
+            setAllergies(safeParseArray(data.userProfile?.allergies));
+            setFavoriteCuisines(safeParseArray(data.userProfile?.favoriteCuisines));
+            setDietaryRestrictions(safeParseArray(data.userProfile?.dietaryRestrictions));
             setNotes(data.userProfile?.notes || "");
         } catch (err) {
             console.error("Error loading profile:", err);
             setError(err instanceof Error ? err.message : "Greška pri učitavanju profila");
+            // Ensure arrays are initialized even on error
+            setAllergies([]);
+            setFavoriteCuisines([]);
+            setDietaryRestrictions([]);
         } finally {
             setLoading(false);
         }
@@ -91,15 +110,20 @@ export default function ProfilePage() {
             setError(null);
             setSuccess(null);
 
+            // Safe access with fallback to empty arrays
+            const safeAllergies = allergies ?? [];
+            const safeFavoriteCuisines = favoriteCuisines ?? [];
+            const safeDietaryRestrictions = dietaryRestrictions ?? [];
+
             const response = await fetch("/api/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name,
                     skillLevel: skillLevel || null,
-                    allergies: allergies.length > 0 ? allergies : null,
-                    favoriteCuisines: favoriteCuisines.length > 0 ? favoriteCuisines : null,
-                    dietaryRestrictions: dietaryRestrictions.length > 0 ? dietaryRestrictions : null,
+                    allergies: safeAllergies.length > 0 ? safeAllergies : null,
+                    favoriteCuisines: safeFavoriteCuisines.length > 0 ? safeFavoriteCuisines : null,
+                    dietaryRestrictions: safeDietaryRestrictions.length > 0 ? safeDietaryRestrictions : null,
                     notes: notes || null,
                 }),
             });
@@ -158,14 +182,37 @@ export default function ProfilePage() {
         }
     };
 
-    const handleAddTag = (value: string, setter: (tags: string[]) => void, tags: string[]) => {
-        if (value && !tags.includes(value)) {
-            setter([...tags, value]);
+    const handleDeleteAccount = async () => {
+        try {
+            setDeleting(true);
+            const response = await fetch(`/api/users/${session?.user?.id}/delete`, {
+                method: "DELETE",
+            });
+
+            if (!response.ok) {
+                throw new Error("Greška pri brisanju računa");
+            }
+
+            await signOut({ callbackUrl: "/" });
+        } catch (err) {
+            console.error("Error deleting account:", err);
+            setError(err instanceof Error ? err.message : "Greška pri brisanju računa");
+            setDeleteDialogOpen(false);
+        } finally {
+            setDeleting(false);
         }
     };
 
-    const handleRemoveTag = (tag: string, setter: (tags: string[]) => void, tags: string[]) => {
-        setter(tags.filter((t) => t !== tag));
+    const handleAddTag = (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>, tags: string[]) => {
+        const safeTags = tags ?? [];
+        if (value && !safeTags.includes(value)) {
+            setter([...safeTags, value]);
+        }
+    };
+
+    const handleRemoveTag = (tag: string, setter: React.Dispatch<React.SetStateAction<string[]>>, tags: string[]) => {
+        const safeTags = tags ?? [];
+        setter(safeTags.filter((t) => t !== tag));
     };
 
     if (status === "loading" || loading) {
@@ -176,9 +223,10 @@ export default function ProfilePage() {
         );
     }
 
-    const commonCuisines = ["Talijanska", "Francuska", "Azijska", "Mediteranska", "Meksička", "Indijska"];
-    const commonAllergens = ["Gluten", "Laktoza", "Jaja", "Riba", "Školjke", "Orašasti plodovi", "Soja"];
-    const commonDietary = ["Vegan", "Vegetarijanska", "Keto", "Bez glutena", "Paleo", "Low-carb"];
+    // Safe arrays for rendering - ensures they're never null/undefined
+    const safeAllergies = allergies ?? [];
+    const safeFavoriteCuisines = favoriteCuisines ?? [];
+    const safeDietaryRestrictions = dietaryRestrictions ?? [];
 
     return (
         <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
@@ -252,12 +300,12 @@ export default function ProfilePage() {
                         <Typography variant="h6" gutterBottom>
                             Alergije
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
-                            {allergies.map((allergy) => (
+                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
+                            {safeAllergies.map((allergy) => (
                                 <Chip
                                     key={allergy}
                                     label={allergy}
-                                    onDelete={() => handleRemoveTag(allergy, setAllergies, allergies)}
+                                    onDelete={() => handleRemoveTag(allergy, setAllergies, safeAllergies)}
                                 />
                             ))}
                         </Stack>
@@ -266,12 +314,12 @@ export default function ProfilePage() {
                             <Select
                                 value=""
                                 onChange={(e: SelectChangeEvent) =>
-                                    handleAddTag(e.target.value, setAllergies, allergies)
+                                    handleAddTag(e.target.value, setAllergies, safeAllergies)
                                 }
                                 label="Dodaj alergen"
                             >
                                 {commonAllergens
-                                    .filter((a) => !allergies.includes(a))
+                                    .filter((a) => !safeAllergies.includes(a))
                                     .map((allergen) => (
                                         <MenuItem key={allergen} value={allergen}>
                                             {allergen}
@@ -285,12 +333,12 @@ export default function ProfilePage() {
                         <Typography variant="h6" gutterBottom>
                             Omiljene kuhinje
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
-                            {favoriteCuisines.map((cuisine) => (
+                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
+                            {safeFavoriteCuisines.map((cuisine) => (
                                 <Chip
                                     key={cuisine}
                                     label={cuisine}
-                                    onDelete={() => handleRemoveTag(cuisine, setFavoriteCuisines, favoriteCuisines)}
+                                    onDelete={() => handleRemoveTag(cuisine, setFavoriteCuisines, safeFavoriteCuisines)}
                                 />
                             ))}
                         </Stack>
@@ -299,12 +347,12 @@ export default function ProfilePage() {
                             <Select
                                 value=""
                                 onChange={(e: SelectChangeEvent) =>
-                                    handleAddTag(e.target.value, setFavoriteCuisines, favoriteCuisines)
+                                    handleAddTag(e.target.value, setFavoriteCuisines, safeFavoriteCuisines)
                                 }
                                 label="Dodaj kuhinju"
                             >
                                 {commonCuisines
-                                    .filter((c) => !favoriteCuisines.includes(c))
+                                    .filter((c) => !safeFavoriteCuisines.includes(c))
                                     .map((cuisine) => (
                                         <MenuItem key={cuisine} value={cuisine}>
                                             {cuisine}
@@ -318,13 +366,13 @@ export default function ProfilePage() {
                         <Typography variant="h6" gutterBottom>
                             Prehrambeni planovi
                         </Typography>
-                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
-                            {dietaryRestrictions.map((restriction) => (
+                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
+                            {safeDietaryRestrictions.map((restriction) => (
                                 <Chip
                                     key={restriction}
                                     label={restriction}
                                     onDelete={() =>
-                                        handleRemoveTag(restriction, setDietaryRestrictions, dietaryRestrictions)
+                                        handleRemoveTag(restriction, setDietaryRestrictions, safeDietaryRestrictions)
                                     }
                                 />
                             ))}
@@ -334,12 +382,12 @@ export default function ProfilePage() {
                             <Select
                                 value=""
                                 onChange={(e: SelectChangeEvent) =>
-                                    handleAddTag(e.target.value, setDietaryRestrictions, dietaryRestrictions)
+                                    handleAddTag(e.target.value, setDietaryRestrictions, safeDietaryRestrictions)
                                 }
                                 label="Dodaj prehrambeni plan"
                             >
                                 {commonDietary
-                                    .filter((d) => !dietaryRestrictions.includes(d))
+                                    .filter((d) => !safeDietaryRestrictions.includes(d))
                                     .map((diet) => (
                                         <MenuItem key={diet} value={diet}>
                                             {diet}
@@ -465,26 +513,7 @@ export default function ProfilePage() {
                 <DialogActions>
                     <Button onClick={() => setDeleteDialogOpen(false)}>Odustani</Button>
                     <Button
-                        onClick={async () => {
-                            try {
-                                setDeleting(true);
-                                const response = await fetch(`/api/users/${session?.user?.id}/delete`, {
-                                    method: "DELETE",
-                                });
-
-                                if (!response.ok) {
-                                    throw new Error("Greška pri brisanju računa");
-                                }
-
-                                await signOut({ callbackUrl: "/" });
-                            } catch (err) {
-                                console.error("Error deleting account:", err);
-                                setError(err instanceof Error ? err.message : "Greška pri brisanju računa");
-                                setDeleteDialogOpen(false);
-                            } finally {
-                                setDeleting(false);
-                            }
-                        }}
+                        onClick={handleDeleteAccount}
                         variant="contained"
                         color="error"
                         disabled={deleting}

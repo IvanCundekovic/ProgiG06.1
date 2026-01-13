@@ -13,7 +13,8 @@ import {
     FormControlLabel,
     FormControl,
     CircularProgress,
-    Alert
+    Alert,
+    useTheme
 } from "@mui/material";
 import {Quiz, QuizAnswer, QuizResult} from "../types/quiz";
 import "../styles.css";
@@ -31,6 +32,9 @@ export default function QuizDialog({
     quiz,
     lessonTitle
 }: QuizDialogProps) {
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
+    
     const [answers, setAnswers] = useState<Record<string, number>>({});
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,7 +43,6 @@ export default function QuizDialog({
     const [result, setResult] = useState<QuizResult | null>(null);
     const [isAbandoned, setIsAbandoned] = useState(false);
 
-    // Reset state kada se otvori dialog
     useEffect(() => {
         if (open) {
             setAnswers({});
@@ -72,7 +75,6 @@ export default function QuizDialog({
     };
 
     const handleSubmit = async () => {
-        // Provjeri da li su sva pitanja odgovorena
         const unansweredQuestions = quiz.questions.filter(q => answers[q.id] === undefined);
         if (unansweredQuestions.length > 0) {
             setError(`Molimo odgovorite na sva pitanja. Neodgovoreno pitanja: ${unansweredQuestions.length}`);
@@ -88,7 +90,6 @@ export default function QuizDialog({
                 selectedAnswer: answers[q.id]
             }));
 
-            // Predaj kviz preko API-ja
             const response = await fetch("/api/quiz-results", {
                 method: "POST",
                 headers: {
@@ -107,7 +108,6 @@ export default function QuizDialog({
 
             const quizResult = await response.json();
             
-            // Transformacija datuma
             const transformedResult: QuizResult = {
                 ...quizResult,
                 completedAt: new Date(quizResult.completedAt),
@@ -131,9 +131,7 @@ export default function QuizDialog({
 
     const handleClose = () => {
         if (!showResults && Object.keys(answers).length > 0) {
-            // Korisnik napušta kviz prije završetka
             setIsAbandoned(true);
-            // Rezultat se ne sprema (prema specifikaciji)
         }
         onClose();
     };
@@ -150,19 +148,32 @@ export default function QuizDialog({
 
     if (showResults && result) {
         return (
-            <Dialog open={open} onClose={handleCloseAfterResults} maxWidth="sm" fullWidth>
-                <DialogTitle>Rezultati kviza</DialogTitle>
+            <Dialog 
+                open={open} 
+                onClose={handleCloseAfterResults} 
+                maxWidth="sm" 
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        bgcolor: isDarkMode ? '#1e1e1e' : 'background.paper',
+                        color: isDarkMode ? '#ffffff' : 'text.primary',
+                    }
+                }}
+            >
+                <DialogTitle sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
+                    Rezultati kviza
+                </DialogTitle>
                 <DialogContent className="quiz-result-container">
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h6" gutterBottom sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
                         {quiz.title}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3, color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}>
                         {lessonTitle}
                     </Typography>
-                    <Typography className="quiz-result-score">
+                    <Typography className="quiz-result-score" sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
                         {result.score} / {result.totalQuestions}
                     </Typography>
-                    <Typography className="quiz-result-percentage">
+                    <Typography className="quiz-result-percentage" sx={{ color: isDarkMode ? '#4caf50' : 'primary.main' }}>
                         {result.percentage}%
                     </Typography>
                     <Box sx={{mt: 3}}>
@@ -170,14 +181,23 @@ export default function QuizDialog({
                             const userAnswer = result.answers.find(a => a.questionId === question.id);
                             const isCorrect = userAnswer?.selectedAnswer === question.correctAnswer;
                             return (
-                                <Box key={question.id} sx={{mb: 2, p: 2, border: "1px solid #e0e0e0", borderRadius: 2}}>
-                                    <Typography variant="subtitle2" gutterBottom>
+                                <Box 
+                                    key={question.id} 
+                                    sx={{
+                                        mb: 2, 
+                                        p: 2, 
+                                        border: isDarkMode ? "1px solid #444" : "1px solid #e0e0e0", 
+                                        borderRadius: 2,
+                                        bgcolor: isDarkMode ? '#2a2a2a' : 'background.paper'
+                                    }}
+                                >
+                                    <Typography variant="subtitle2" gutterBottom sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
                                         Pitanje {index + 1}: {question.text}
                                     </Typography>
                                     <Typography variant="body2" color={isCorrect ? "success.main" : "error.main"}>
                                         {isCorrect ? "✓ Točno" : "✗ Netočno"}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary">
+                                    <Typography variant="caption" sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}>
                                         Vaš odgovor: {question.options[userAnswer?.selectedAnswer || 0]}
                                     </Typography>
                                     {!isCorrect && (
@@ -201,10 +221,23 @@ export default function QuizDialog({
 
     if (isAbandoned) {
         return (
-            <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-                <DialogTitle>Kviz napušten</DialogTitle>
+            <Dialog 
+                open={open} 
+                onClose={onClose} 
+                maxWidth="sm" 
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        bgcolor: isDarkMode ? '#1e1e1e' : 'background.paper',
+                        color: isDarkMode ? '#ffffff' : 'text.primary',
+                    }
+                }}
+            >
+                <DialogTitle sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
+                    Kviz napušten
+                </DialogTitle>
                 <DialogContent>
-                    <Typography>
+                    <Typography sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
                         Napustili ste kviz prije završetka. Rezultat se ne sprema.
                     </Typography>
                 </DialogContent>
@@ -216,10 +249,21 @@ export default function QuizDialog({
     }
 
     return (
-        <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-            <DialogTitle>
+        <Dialog 
+            open={open} 
+            onClose={handleClose} 
+            maxWidth="md" 
+            fullWidth
+            PaperProps={{
+                sx: {
+                    bgcolor: isDarkMode ? '#1e1e1e' : 'background.paper',
+                    color: isDarkMode ? '#ffffff' : 'text.primary',
+                }
+            }}
+        >
+            <DialogTitle sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}>
                 {quiz.title}
-                <Typography variant="caption" display="block" color="text.secondary">
+                <Typography variant="caption" display="block" sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}>
                     Pitanje {currentQuestionIndex + 1} od {quiz.questions.length}
                 </Typography>
             </DialogTitle>
@@ -244,7 +288,12 @@ export default function QuizDialog({
                 )}
 
                 <Box className="quiz-question-container">
-                    <Typography className="quiz-question-text" variant="h6" gutterBottom>
+                    <Typography 
+                        className="quiz-question-text" 
+                        variant="h6" 
+                        gutterBottom
+                        sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+                    >
                         {currentQuestion.text}
                     </Typography>
                     <FormControl component="fieldset" fullWidth>
@@ -262,14 +311,16 @@ export default function QuizDialog({
                                     sx={{
                                         mb: 1,
                                         p: 1,
-                                        border: "2px solid #e0e0e0",
+                                        border: isDarkMode ? "2px solid #444" : "2px solid #e0e0e0",
                                         borderRadius: 2,
+                                        bgcolor: isDarkMode ? '#2a2a2a' : 'background.paper',
+                                        color: isDarkMode ? '#ffffff' : 'text.primary',
                                         "&:hover": {
-                                            backgroundColor: "#f5f5f5",
+                                            backgroundColor: isDarkMode ? '#353535' : "#f5f5f5",
                                             borderColor: "#1976d2"
                                         },
-                                        "&.selected": {
-                                            backgroundColor: "#e3f2fd",
+                                        "&.Mui-checked": {
+                                            backgroundColor: isDarkMode ? '#1e3a5f' : "#e3f2fd",
                                             borderColor: "#1976d2"
                                         }
                                     }}
@@ -279,9 +330,8 @@ export default function QuizDialog({
                     </FormControl>
                 </Box>
 
-                {/* Progress indicator */}
                 <Box sx={{mt: 3, mb: 2}}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}>
                         Odgovoreno: {Object.keys(answers).length} / {quiz.questions.length}
                     </Typography>
                 </Box>
@@ -312,4 +362,3 @@ export default function QuizDialog({
         </Dialog>
     );
 }
-

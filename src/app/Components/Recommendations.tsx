@@ -12,6 +12,7 @@ import {
     CircularProgress,
     Alert,
     Paper,
+    useTheme,
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import StarIcon from "@mui/icons-material/Star";
@@ -27,6 +28,9 @@ interface Recommendation {
 
 export default function Recommendations() {
     const { data: session } = useSession();
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
+    
     const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -35,7 +39,6 @@ export default function Recommendations() {
         if (session?.user) {
             loadRecommendations();
         } else {
-            // Ako korisnik nije prijavljen, zaustavi loading
             setLoading(false);
             setError(null);
         }
@@ -62,14 +65,27 @@ export default function Recommendations() {
         }
     };
 
-    // Ako korisnik nije prijavljen, prikaži poruku
     if (!session?.user) {
         return (
-            <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
+            <Paper 
+                sx={{ 
+                    p: 3,
+                    bgcolor: isDarkMode ? '#2a2a2a' : 'background.paper',
+                    border: isDarkMode ? '1px solid #444' : 'none'
+                }}
+            >
+                <Typography 
+                    variant="h6" 
+                    gutterBottom
+                    sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+                >
                     Personalizirane preporuke
                 </Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
+                <Typography 
+                    variant="body2" 
+                    paragraph
+                    sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                >
                     Prijavite se da biste vidjeli personalizirane preporuke temeljene na vašim preferencijama i razini vještine.
                 </Typography>
             </Paper>
@@ -94,11 +110,24 @@ export default function Recommendations() {
 
     if (recommendations.length === 0) {
         return (
-            <Paper sx={{ p: 3 }}>
-                <Typography variant="h6" gutterBottom>
+            <Paper 
+                sx={{ 
+                    p: 3,
+                    bgcolor: isDarkMode ? '#2a2a2a' : 'background.paper',
+                    border: isDarkMode ? '1px solid #444' : 'none'
+                }}
+            >
+                <Typography 
+                    variant="h6" 
+                    gutterBottom
+                    sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+                >
                     Personalizirane preporuke
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography 
+                    variant="body2"
+                    sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                >
                     Nema dostupnih preporuka. Ažurirajte svoj profil da biste dobili personalizirane preporuke.
                 </Typography>
             </Paper>
@@ -107,31 +136,71 @@ export default function Recommendations() {
 
     return (
         <Box>
-            <Typography variant="h6" gutterBottom>
+            <Typography 
+                variant="h6" 
+                gutterBottom
+                sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+            >
                 Personalizirane preporuke za vas
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography 
+                variant="body2" 
+                sx={{ 
+                    mb: 3,
+                    color: isDarkMode ? '#b0b0b0' : 'text.secondary'
+                }}
+            >
                 Preporuke temeljene na vašim preferencijama i razini vještine
             </Typography>
 
             <Stack spacing={2}>
                 {recommendations.map((rec) => (
-                    <Card key={rec.id}>
+                    <Card 
+                        key={rec.id}
+                        sx={{
+                            bgcolor: isDarkMode ? '#2a2a2a' : 'background.paper',
+                            border: isDarkMode ? '1px solid #444' : 'none'
+                        }}
+                    >
                         <CardActionArea>
                             <CardContent>
                                 <Stack direction="row" justifyContent="space-between" alignItems="start" spacing={2}>
                                     <Box sx={{ flex: 1 }}>
-                                        <Typography variant="h6" gutterBottom>
+                                        <Typography 
+                                            variant="h6" 
+                                            gutterBottom
+                                            sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+                                        >
                                             {rec.title}
                                         </Typography>
                                         {rec.description && (
-                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                            <Typography 
+                                                variant="body2" 
+                                                sx={{ 
+                                                    mb: 1,
+                                                    color: isDarkMode ? '#b0b0b0' : 'text.secondary'
+                                                }}
+                                            >
                                                 {rec.description}
                                             </Typography>
                                         )}
                                         <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                            <Chip label={`Instruktor: ${rec.instructorName}`} size="small" />
-                                            <Chip label={`${rec.lessonsCount} lekcija`} size="small" />
+                                            <Chip 
+                                                label={`Instruktor: ${rec.instructorName}`} 
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: isDarkMode ? '#3a3a3a' : undefined,
+                                                    color: isDarkMode ? '#ffffff' : undefined
+                                                }}
+                                            />
+                                            <Chip 
+                                                label={`${rec.lessonsCount} lekcija`} 
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: isDarkMode ? '#3a3a3a' : undefined,
+                                                    color: isDarkMode ? '#ffffff' : undefined
+                                                }}
+                                            />
                                             <Chip
                                                 icon={<StarIcon />}
                                                 label={`Relevantnost: ${rec.score.toFixed(0)}`}
