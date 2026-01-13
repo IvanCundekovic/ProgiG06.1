@@ -456,7 +456,7 @@ export default function VideoLectures() {
             setError(null);
             const response = await fetch("/api/courses");
             if (!response.ok) {
-                throw new Error("Greška pri učitavanju kurseva");
+                throw new Error("Greška pri učitavanju tečaja");
             }
             const data = await response.json();
             // Ako API vraća prazan array ili nema podataka, koristi mock podatke
@@ -468,7 +468,7 @@ export default function VideoLectures() {
             }
         } catch (err) {
             console.error("Error loading courses:", err);
-            setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
+            setError(err instanceof Error ? err.message : "Greška pri učitavanju tečaja");
             // Fallback na mock podatke ako API ne radi
             setCourses(mockCourses);
         } finally {
@@ -811,7 +811,7 @@ export default function VideoLectures() {
 
     const handleCreateCourse = async () => {
         if (!title.trim()) {
-            alert("Naziv kursa je obavezan");
+            alert("Naziv tečaja je obavezan");
             return;
         }
 
@@ -868,7 +868,7 @@ export default function VideoLectures() {
 
     const handleCreateLesson = async () => {
         if (!lessonCreateTitle.trim() || !courseId) {
-            alert("Naziv lekcije i kurs su obavezni");
+            alert("Naziv lekcije i tečaj su obavezni");
             return;
         }
 
@@ -961,16 +961,16 @@ export default function VideoLectures() {
 
             {isInstructor && (
                 <Button variant="contained" onClick={() => setOpen(true)}>
-                    Novi kurs
+                    Novi tečaj
                 </Button>
             )}
 
             <Dialog open = {open} onClose = {() => setOpen(false)} fullWidth maxWidth = "sm">
-                <DialogTitle> Napravi novi kurs </DialogTitle>
+                <DialogTitle> Napravi novi tečaj </DialogTitle>
                 <DialogContent>
                     <Stack spacing = {2} mt = {1}>
                         <TextField 
-                            label = "Naziv kursa"
+                            label = "Naziv tečaja"
                             value = {title}
                             onChange = {(e) => setTitle(e.target.value)} 
                             required
