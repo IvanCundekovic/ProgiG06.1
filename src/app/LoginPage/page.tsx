@@ -5,6 +5,7 @@ import {Box, Button, Checkbox, Container, Divider, FormControlLabel, Paper, Text
 import {signIn} from "next-auth/react";
 import Image from "next/image";
 import {useRouter} from "next/navigation";
+import {loginWithProvider} from "../lib/auth-utils";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -99,8 +100,19 @@ export default function LoginPage() {
         }
     }
 
-    const handleOAuthSignIn = (provider: 'github' | 'google') => {
-        void signIn(provider, {callbackUrl: "/Homepage"});
+    const handleOAuthSignIn = async (provider: 'github' | 'google') => {
+        try {
+            setLoading(true);
+            await loginWithProvider(provider);
+        } catch (error: unknown) {
+            if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+                return;
+            }
+
+            console.error("OAuth error:", error);
+            setError("Došlo je do greške kod povezivanja s providerom.");
+            setLoading(false);
+        }
     }
 
     const SocialButton = ({icon, label, onClick, color}: {

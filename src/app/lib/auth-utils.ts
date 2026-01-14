@@ -1,5 +1,12 @@
+"use server"
+
 import {prisma} from "@/prisma";
 import bcrypt from "bcryptjs";
+import {signIn} from "../auth";
+
+export async function loginWithProvider(provider: "google" | "github") {
+    await signIn(provider, { redirectTo: "/Homepage" });
+}
 
 export async function hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
