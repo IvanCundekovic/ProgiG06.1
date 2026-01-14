@@ -15,19 +15,8 @@ interface ExtendedUser extends User {
     role: Role;
 }
 
-const GITHUB_CLIENT_ID = process.env.AUTH_GITHUB_ID;
-const GITHUB_CLIENT_SECRET = process.env.AUTH_GITHUB_SECRET;
-const GOOGLE_CLIENT_ID = process.env.AUTH_GOOGLE_ID;
-const GOOGLE_CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET;
-
-if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
-    throw new Error("Missing GitHub OAuth credentials in environment variables.");
-}
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    throw new Error("Missing Google OAuth credentials in environment variables.");
-}
-
 export const authOptions: NextAuthConfig = {
+    secret: process.env.AUTH_SECRET,
     adapter: PrismaAdapter(prisma),
     providers: [
         Credentials({
@@ -64,12 +53,12 @@ export const authOptions: NextAuthConfig = {
             },
         }),
         GitHub({
-            clientId: GITHUB_CLIENT_ID,
-            clientSecret: GITHUB_CLIENT_SECRET,
+            clientId: process.env.AUTH_GITHUB_ID,
+            clientSecret: process.env.AUTH_GITHUB_SECRET,
         }),
         Google({
-            clientId: GOOGLE_CLIENT_ID,
-            clientSecret: GOOGLE_CLIENT_SECRET,
+            clientId: process.env.AUTH_GOOGLE_ID,
+            clientSecret: process.env.AUTH_GOOGLE_SECRET,
         }),
     ],
     session: {
@@ -94,7 +83,10 @@ export const authOptions: NextAuthConfig = {
 
             await sendWelcomeEmail(user);
         }
-    }
+    },
+    pages: {
+        signIn: '/LoginPage',
+    },
 }
 
 export const {handlers, auth, signIn, signOut} = NextAuth(authOptions);

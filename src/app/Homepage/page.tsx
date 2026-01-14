@@ -157,7 +157,7 @@ export default function Homepage() {
                     }
                 }}
             >
-                <Toolbar />
+
                 <List>
                     {categories.map((text) => (
                         <ListItem key={text} disablePadding>

@@ -1,35 +1,38 @@
 "use client";
 
-import {ChangeEvent, FormEvent, useMemo, useState, useEffect, useCallback} from "react";
+import React, {ChangeEvent, FormEvent, useMemo, useState, useEffect, useCallback} from "react";
+import type {SelectChangeEvent} from "@mui/material";
 import {
+    Alert,
     Box,
+    Button,
     Card,
     CardActionArea,
     CardContent,
     CardMedia,
-    Typography,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
+    Checkbox,
     Chip,
-    Stack,
-    Rating,
-    TextField,
-    Divider,
-    Alert,
-    Paper,
     CircularProgress,
-    InputAdornment,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Divider,
     FormControl,
+    FormControlLabel,
+    InputAdornment,
     InputLabel,
+    MenuItem,
+    Paper,
+    Rating,
     Select,
     MenuItem,
+    Stack,
+    TextField,
+    Typography,
     IconButton,
     Tooltip
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import RefreshIcon from "@mui/icons-material/Refresh";
@@ -420,7 +423,7 @@ export default function VideoLectures() {
     const {data: session} = useSession();
     const userRole = (session?.user as { role?: string })?.role;
     const canDelete = userRole === "INSTRUCTOR" || userRole === "ADMINISTRATOR";
-    
+
     const {
         markLessonStarted,
         hasStartedLesson,
@@ -441,7 +444,7 @@ export default function VideoLectures() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    
+
     // F-015: Pretraga i filtriranje
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCuisine, setSelectedCuisine] = useState<string>("");
@@ -450,17 +453,42 @@ export default function VideoLectures() {
     const [selectedAllergen, setSelectedAllergen] = useState<string>("");
     const [minRating, setMinRating] = useState<number | null>(null);
     const [maxDuration, setMaxDuration] = useState<number | null>(null);
-    
+
     // Delete dialog state
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<{type: 'course' | 'lesson', id: string, title: string} | null>(null);
     const [deleting, setDeleting] = useState(false);
-    
+
     // Instructor review dialog
     const [instructorReviewOpen, setInstructorReviewOpen] = useState(false);
     const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
     const [selectedInstructorName, setSelectedInstructorName] = useState<string>("");
 
+    const loadCourses = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await fetch("/api/courses");
+            if (!response.ok) {
+                throw new Error("Greška pri učitavanju kurseva");
+            }
+            const data = await response.json();
+            // Ako API vraća prazan array ili nema podataka, koristi mock podatke
+            if (Array.isArray(data) && data.length === 0) {
+                console.log("Baza podataka je prazna, koristim mock podatke");
+                setCourses(mockCourses);
+            } else {
+                setCourses(data);
+            }
+        } catch (err) {
+            console.error("Error loading courses:", err);
+            setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
+            // Fallback na mock podatke ako API ne radi
+            setCourses(mockCourses);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
     // Učitaj kurseve iz API-ja
     const loadCourses = useCallback(async () => {
         try {
@@ -489,7 +517,7 @@ export default function VideoLectures() {
     }, []);
 
     useEffect(() => {
-        loadCourses();
+        void loadCourses();
     }, [loadCourses]);
 
     // Refresh funkcija
@@ -500,14 +528,14 @@ export default function VideoLectures() {
     // Delete funkcija
     const handleDelete = async () => {
         if (!itemToDelete) return;
-        
+
         try {
             setDeleting(true);
             setError(null);
-            
+
             // Debug: provjeri ID
             console.log("Deleting:", itemToDelete);
-            
+
             // Provjeri da li je mock podatak (mock ID-evi počinju s "lesson-" ili "course-")
             if (itemToDelete.id.startsWith('lesson-') || itemToDelete.id.startsWith('course-')) {
                 setError("Ne možete obrisati demo podatke. Ovo su primjeri koji nisu u bazi podataka.");
@@ -515,28 +543,28 @@ export default function VideoLectures() {
                 setItemToDelete(null);
                 return;
             }
-            
-            const endpoint = itemToDelete.type === 'course' 
+
+            const endpoint = itemToDelete.type === 'course'
                 ? `/api/courses/${itemToDelete.id}`
                 : `/api/lessons/${itemToDelete.id}`;
-            
+
             console.log("DELETE endpoint:", endpoint);
-                
+
             const response = await fetch(endpoint, { method: 'DELETE' });
-            
+
             console.log("Response status:", response.status);
-            
+
             const data = await response.json();
             console.log("Response data:", data);
-            
+
             if (!response.ok) {
                 throw new Error(data.message || `Greška pri brisanju ${itemToDelete.type === 'course' ? 'tečaja' : 'lekcije'}`);
             }
-            
+
             setSuccessMessage(`${itemToDelete.type === 'course' ? 'Tečaj' : 'Lekcija'} "${itemToDelete.title}" uspješno obrisana`);
             setDeleteDialogOpen(false);
             setItemToDelete(null);
-            
+
             // Reload data
             await loadCourses();
         } catch (err) {
@@ -549,7 +577,7 @@ export default function VideoLectures() {
     };
 
     const allLessons = useLessonCards(courses);
-    
+
     // Helper funkcija za sigurno parsiranje JSON polja
     const safeParseArray = <T,>(value: T[] | string | null | undefined): T[] => {
         if (!value) return [];
@@ -568,19 +596,18 @@ export default function VideoLectures() {
     // F-015: Filtriranje lekcija
     const filteredLessons = useMemo(() => {
         return allLessons.filter(({lesson, course}) => {
-            // Pretraga po naslovu, opisu i sastojcima
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
                 const matchesTitle = lesson.title.toLowerCase().includes(query);
                 const matchesDescription = lesson.description?.toLowerCase().includes(query) ?? false;
                 const matchesCourse = course.title.toLowerCase().includes(query);
-                
+
                 // Sigurno parsiraj ingredients
                 const ingredients = safeParseArray(lesson.ingredients);
-                const matchesIngredients = ingredients.some((ing: {name?: string}) => 
+                const matchesIngredients = ingredients.some((ing: {name?: string}) =>
                     ing.name?.toLowerCase().includes(query)
                 );
-                
+
                 if (!matchesTitle && !matchesDescription && !matchesCourse && !matchesIngredients) {
                     return false;
                 }
@@ -590,45 +617,34 @@ export default function VideoLectures() {
             if (selectedCuisine && lesson.cuisine !== selectedCuisine) {
                 return false;
             }
-            
-            // Filtriranje po razini težine
-            if (selectedDifficulty && lesson.difficultyLevel !== selectedDifficulty) {
-                return false;
-            }
-            
-            // Filtriranje po prehrambenim planovima
+
+            if (selectedCuisine && lesson.cuisine !== selectedCuisine) return false;
+            if (selectedDifficulty && lesson.difficultyLevel !== selectedDifficulty) return false;
+
             if (selectedDietaryTag) {
                 const dietaryTags = safeParseArray(lesson.dietaryTags);
                 if (!dietaryTags.includes(selectedDietaryTag)) {
                     return false;
                 }
             }
-            
-            // Filtriranje po alergenima (isključi lekcije koje sadrže odabrani alergen)
+
             if (selectedAllergen) {
                 const allergens = safeParseArray(lesson.allergens);
                 if (allergens.includes(selectedAllergen)) {
                     return false;
                 }
             }
-            
-            // Filtriranje po minimalnoj ocjeni
+
             if (minRating !== null) {
                 const avgRating = getAverageRating(course.id, lesson.id);
-                if (!avgRating || avgRating < minRating) {
-                    return false;
-                }
+                if (!avgRating || avgRating < minRating) return false;
             }
-            
-            // Filtriranje po maksimalnom trajanju
-            if (maxDuration !== null && lesson.duration && lesson.duration > maxDuration) {
-                return false;
-            }
-            
-            return true;
+
+            // Zadnji uvjet vraćamo direktno kao boolean
+            return !(maxDuration !== null && lesson.duration && lesson.duration > maxDuration);
         });
     }, [allLessons, searchQuery, selectedCuisine, selectedDifficulty, selectedDietaryTag, selectedAllergen, minRating, maxDuration, getAverageRating]);
-    
+
     // Dobij jedinstvene vrijednosti za filtere
     const availableCuisines = useMemo(() => {
         const cuisines = new Set<string>();
@@ -637,7 +653,7 @@ export default function VideoLectures() {
         });
         return Array.from(cuisines).sort();
     }, [allLessons]);
-    
+
     const availableDifficulties = useMemo(() => {
         const difficulties = new Set<string>();
         allLessons.forEach(({lesson}) => {
@@ -645,7 +661,7 @@ export default function VideoLectures() {
         });
         return Array.from(difficulties).sort();
     }, [allLessons]);
-    
+
     const availableDietaryTags = useMemo(() => {
         const tags = new Set<string>();
         allLessons.forEach(({lesson}) => {
@@ -656,7 +672,7 @@ export default function VideoLectures() {
         });
         return Array.from(tags).sort();
     }, [allLessons]);
-    
+
     const availableAllergens = useMemo(() => {
         const allergens = new Set<string>();
         allLessons.forEach(({lesson}) => {
@@ -667,9 +683,9 @@ export default function VideoLectures() {
         });
         return Array.from(allergens).sort();
     }, [allLessons]);
-    
+
     // Check if any filters are available
-    const hasFilters = availableCuisines.length > 0 || availableDifficulties.length > 0 || 
+    const hasFilters = availableCuisines.length > 0 || availableDifficulties.length > 0 ||
                        availableDietaryTags.length > 0 || availableAllergens.length > 0;
 
     const [selectedLesson, setSelectedLesson] = useState<LessonWithCourse | null>(null);
@@ -684,6 +700,7 @@ export default function VideoLectures() {
 
     const selectedCourseId = selectedLesson?.course.id;
     const selectedLessonId = selectedLesson?.lesson.id;
+    const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
 
     const lessonReviews = useMemo(
         () =>
@@ -891,6 +908,156 @@ export default function VideoLectures() {
         }
     };
 
+    const [open, setOpen] = useState(false);
+    const [title, setTitle] = useState("");
+    const [description, setDescription] = useState("");
+
+    const handleCreateCourse = async () => {
+        if (!title.trim()) {
+            alert("Naziv tečaja je obavezan");
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/courses", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    title,
+                    description,
+
+                }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                alert(data.message || "Greška pri stvaranju tečaja");
+            }
+            //reset sve
+            setTitle("");
+            setDescription("");
+            setOpen(false);
+            //loadaj sve opet
+            void loadCourses();
+
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                alert(err.message);
+            } else {
+                alert("Dogodila se nepoznata pogreška");
+            }
+        }
+    }
+
+    type Ingredient = {
+        name: string;
+        amount: string;
+    }
+
+    type Nutrition = {
+        label: string;
+        value: string;
+    }
+
+    const [openLessonCreate, setOpenLessonCreate] = useState(false);
+    const [lessonCreateTitle, setLessonCreateTitle] = useState("");
+    const [lessonCreateDescription, setLessonCreateDescription] = useState("");
+    const [lessonContent, setLessonContent] = useState("");
+    const [courseId, setCourseId] = useState("");
+    const [lessonVideoUrl, setLessonVideoUrl] = useState("");
+    const [lessonPublished, setLessonPublished] = useState(false);
+    const [lessonSteps, setLessonSteps] = useState<string[]>([""]);
+    const [lessonIngredients, setLessonIngredients] = useState<Ingredient[]>([{name: "", amount: ""}]);
+    const [lessonNutrition, setLessonNutrition] = useState<Nutrition[]>([{label: "", value: ""}]);
+
+    const handleCreateLesson = async () => {
+        if (!lessonCreateTitle.trim() || !courseId) {
+            alert("Naziv lekcije i tečaj su obavezni");
+            return;
+        }
+
+        try {
+            const res = await fetch("/api/lessons", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    title: lessonCreateTitle,
+                    description: lessonCreateDescription,
+                    courseId: courseId,
+                    videoUrl: lessonVideoUrl,
+                    published: lessonPublished,
+                    steps: lessonSteps,
+                    ingredients: lessonIngredients,
+                    nutrition: lessonNutrition
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || "Greška pri stvaranju lekcije");
+            }
+
+            //reset sve
+            setLessonCreateTitle("");
+            setLessonCreateDescription("");
+            setLessonContent("");
+            setCourseId("")
+            setLessonVideoUrl("");
+            setLessonPublished(false);
+            setLessonSteps([""]);
+            setLessonIngredients([{name: "", amount: ""}]);
+            setLessonNutrition([{label: "", value: ""}]);
+            setOpenLessonCreate(false);
+            //loadaj sve opet
+            void loadCourses()
+
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                alert(err.message);
+            } else {
+                alert("Dogodila se nepoznata pogreška");
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const updateArrayItem = (
+        setter: React.Dispatch<React.SetStateAction<string[]>>,
+        index: number,
+        value: string
+    ) => {
+        setter(prev => prev.map((v, i) => (i === index ? value : v)));
+    };
+
+    const updateIngredient = (
+        index: number,
+        field: keyof Ingredient,
+        value: string
+    ) => {
+        setLessonIngredients(prev =>
+            prev.map((ing, i) =>
+                i === index ? {...ing, [field]: value} : ing
+            )
+        );
+    };
+
+    const updateNutrition = (
+        index: number,
+        field: keyof Nutrition,
+        value: string
+    ) => {
+        setLessonNutrition(prev =>
+            prev.map((nut, i) =>
+                i === index ? {...nut, [field]: value} : nut
+            )
+        );
+    };
+
+
     return (
         <Box>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
@@ -909,9 +1076,187 @@ export default function VideoLectures() {
                 </Tooltip>
             </Box>
 
+            {isInstructor && (
+                <Button variant="contained" onClick={() => setOpen(true)}>
+                    Novi tečaj
+                </Button>
+            )}
+
+            <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle> Napravi novi tečaj </DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} mt={1}>
+                        <TextField
+                            label="Naziv tečaja"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            required
+                            autoFocus
+                        />
+                        <TextField
+                            label="Opis"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            multiline
+                            rows={3}
+                        />
+
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button
+                        onClick={handleCreateCourse}
+                        variant="contained"
+                        disabled={loading}
+                    >
+                        {loading ? "Creating..." : "Create"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {isInstructor && (
+                <Button variant="contained" onClick={() => setOpenLessonCreate(true)}>
+                    Nova lekcija
+                </Button>
+            )}
+            <Dialog open={openLessonCreate} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>Kreiraj novu lekciju</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} mt={1}>
+                        <TextField
+                            label="Naziv lekcije"
+                            value={lessonCreateTitle}
+                            onChange={(e) => setLessonCreateTitle(e.target.value)}
+                            required
+                        />
+                        <TextField
+                            label="Opis"
+                            value={lessonCreateDescription}
+                            onChange={(e) => setLessonCreateDescription(e.target.value)}
+                            required
+                        />
+
+                        <TextField
+                            label="Sadržaj"
+                            value={lessonContent}
+                            onChange={(e) => setLessonContent(e.target.value)}
+                            required
+                        />
+                        <FormControl required>
+                            <InputLabel id="course-select-label">
+                                Course
+                            </InputLabel>
+                            <Select
+                                labelId="course-select-label"
+                                value={courseId}
+                                label="Course"
+                                onChange={(e) => setCourseId(e.target.value)}
+                            >
+                                {courses.map((course) => (
+                                    <MenuItem key={course.id} value={course.id}>
+                                        {course.title}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <TextField
+                            label="Video url"
+                            value={lessonVideoUrl}
+                            onChange={(e) => setLessonVideoUrl(e.target.value)}
+                            required
+                        />
+
+                        {lessonSteps.map((step, i) => (
+                            <TextField
+                                key={`step-${i}`}
+                                label={`Korak ${i + 1}`}
+                                value={step}
+                                onChange={(e) =>
+                                    updateArrayItem(setLessonSteps, i, e.target.value)
+                                }
+                            />
+                        ))}
+                        <Button
+                            onClick={() => setLessonSteps(prev => [...prev, ""])}
+                        >
+                            Dodaj korak
+                        </Button>
+                        {lessonIngredients.map((ingredient, i) => (
+                            <Stack key={`ingredient-${i}`} direction="row" spacing={1}>
+                                <TextField
+                                    label="Naziv"
+                                    value={ingredient.name}
+                                    onChange={(e) => updateIngredient(i, "name", e.target.value)}
+                                    fullWidth
+                                />
+                                <TextField
+                                    label="Količina"
+                                    value={ingredient.amount}
+                                    onChange={(e) =>
+                                        updateIngredient(i, "amount", e.target.value)
+                                    }
+                                    fullWidth
+                                />
+                            </Stack>
+                        ))}
+                        <Button
+                            onClick={() => setLessonIngredients(prev => [...prev, {name: "", amount: ""}])}
+                        >
+                            Dodaj sastojak
+                        </Button>
+                        {lessonNutrition.map((nutrition, i) => (
+                            <Stack key={`nutrition-${i}`} direction="row" spacing={1}>
+                                <TextField
+                                    label="Naziv"
+                                    value={nutrition.label}
+                                    onChange={(e) => updateNutrition(i, "label", e.target.value)}
+                                    fullWidth
+                                />
+                                <TextField
+                                    label="Vrijednost"
+                                    value={nutrition.value}
+                                    onChange={(e) =>
+                                        updateNutrition(i, "value", e.target.value)
+                                    }
+                                    fullWidth
+                                />
+                            </Stack>
+                        ))}
+                        <Button
+                            onClick={() => setLessonNutrition(prev => [...prev, {label: "", value: ""}])}
+                        >
+                            Dodaj nutriciju
+                        </Button>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={lessonPublished}
+                                    onChange={(e) => setLessonPublished(e.target.checked)}
+                                    color="primary"
+                                />
+                            }
+                            label="Objavi"
+                        />
+
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenLessonCreate(false)}>Cancel</Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleCreateLesson}
+                        disabled={loading}
+                    >
+                        {loading ? "Creating..." : "Create"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             {loading && (
                 <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
-                    <CircularProgress />
+                    <CircularProgress/>
                 </Box>
             )}
 
@@ -931,7 +1276,7 @@ export default function VideoLectures() {
             {!loading && (
                 <Paper sx={{p: 3, mb: 3}}>
                     <Typography variant="h6" gutterBottom>
-                        <FilterListIcon sx={{verticalAlign: "middle", mr: 1}} />
+                        <FilterListIcon sx={{verticalAlign: "middle", mr: 1}}/>
                         Pretraga i filtriranje
                     </Typography>
                     <Stack spacing={2}>
@@ -941,12 +1286,14 @@ export default function VideoLectures() {
                                 placeholder="Pretraži po naslovu, opisu, tečaju ili sastojcima..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                InputProps={{
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchIcon />
-                                        </InputAdornment>
-                                    ),
+                                slotProps={{
+                                    input: {
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <SearchIcon/>
+                                            </InputAdornment>
+                                        ),
+                                    }
                                 }}
                             />
                             <FormControl sx={{minWidth: 150}}>
@@ -1038,11 +1385,11 @@ export default function VideoLectures() {
                                 color="primary"
                             />
                         </Box>
-                        
+
                         {/* Info poruka ako nema filtera */}
                         {!hasFilters && (
                             <Alert severity="info">
-                                Napredni filteri (kuhinja, težina, prehrambeni plan, alergeni) nisu dostupni jer lekcije u bazi nemaju te podatke popunjene. 
+                                Napredni filteri (kuhinja, težina, prehrambeni plan, alergeni) nisu dostupni jer lekcije u bazi nemaju te podatke popunjene.
                                 Pretraga po naslovu, opisu i sastojcima funkcionira.
                             </Alert>
                         )}
@@ -1101,7 +1448,7 @@ export default function VideoLectures() {
                                         </IconButton>
                                     </Tooltip>
                                 )}
-                                
+
                                 <Card className="lesson-card" sx={{height: "100%"}}>
                                     <CardActionArea onClick={() => handleOpenLesson({lesson, course})}>
                                         <CardMedia
@@ -1123,11 +1470,11 @@ export default function VideoLectures() {
                                                 flexWrap="wrap"
                                                 useFlexGap
                                             >
-                                                <Chip label={course.title} color="secondary" size="small" />
+                                                <Chip label={course.title} color="secondary" size="small"/>
                                                 {lesson.quiz ? (
-                                                    <Chip label="Ima kviz" color="success" size="small" />
+                                                    <Chip label="Ima kviz" color="success" size="small"/>
                                                 ) : (
-                                                    <Chip label="Bez kviza" size="small" />
+                                                    <Chip label="Bez kviza" size="small"/>
                                                 )}
                                                 {lessonReviewCount > 0 && (
                                                     <Chip
@@ -1166,9 +1513,9 @@ export default function VideoLectures() {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setDeleteDialogOpen(false)}>Odustani</Button>
-                    <Button 
-                        onClick={handleDelete} 
-                        color="error" 
+                    <Button
+                        onClick={handleDelete}
+                        color="error"
                         variant="contained"
                         disabled={deleting}
                     >
@@ -1182,7 +1529,7 @@ export default function VideoLectures() {
                     <>
                         <DialogTitle>{selectedLesson.lesson.title}</DialogTitle>
                         <DialogContent dividers>
-                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
+                            <Box sx={{display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1}}>
                                 <Typography variant="subtitle1" color="text.secondary">
                                     Instruktor: {selectedLesson.course.instructorName}
                                 </Typography>
@@ -1201,7 +1548,7 @@ export default function VideoLectures() {
                                 )}
                             </Box>
                             <Stack direction="row" spacing={1.5} alignItems="center" sx={{mb: 2}}>
-                                <Rating value={averageRating ?? 0} precision={0.5} readOnly />
+                                <Rating value={averageRating ?? 0} precision={0.5} readOnly/>
                                 <Typography variant="body2" color="text.secondary">
                                     {reviewCount > 0 && averageRating !== null
                                         ? `${averageRating.toFixed(1)} / 5 · ${reviewCount} recenzija`
@@ -1211,10 +1558,12 @@ export default function VideoLectures() {
                             {!lessonStarted && (
                                 <Box sx={{mb: 3}}>
                                     <Alert severity="info" sx={{mb: 1}}>
-                                        Za ocjenjivanje i postavljanje pitanja označite da ste započeli lekciju instruktora{" "}
+                                        Za ocjenjivanje i postavljanje pitanja označite da ste započeli lekciju
+                                        instruktora{" "}
                                         {selectedLesson.course.instructorName}.
                                     </Alert>
-                                    <Button variant="contained" size="small" onClick={() => markLessonStarted(selectedLesson.lesson.id)}>
+                                    <Button variant="contained" size="small"
+                                            onClick={() => markLessonStarted(selectedLesson.lesson.id)}>
                                         Označi lekciju započetom
                                     </Button>
                                 </Box>
@@ -1228,7 +1577,12 @@ export default function VideoLectures() {
                             >
                                 <Box sx={{flex: 1}}>
                                     {selectedLesson.lesson.videoUrl && (
-                                        <Box sx={{position: "relative", pt: "56.25%", borderRadius: 2, overflow: "hidden"}}>
+                                        <Box sx={{
+                                            position: "relative",
+                                            pt: "56.25%",
+                                            borderRadius: 2,
+                                            overflow: "hidden"
+                                        }}>
                                             <iframe
                                                 src={
                                                     selectedLesson.lesson.videoUrl
@@ -1238,7 +1592,13 @@ export default function VideoLectures() {
                                                 title={selectedLesson.lesson.title}
                                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                 allowFullScreen
-                                                style={{position: "absolute", inset: 0, width: "100%", height: "100%", border: 0}}
+                                                style={{
+                                                    position: "absolute",
+                                                    inset: 0,
+                                                    width: "100%",
+                                                    height: "100%",
+                                                    border: 0
+                                                }}
                                             />
                                         </Box>
                                     )}
@@ -1319,7 +1679,7 @@ export default function VideoLectures() {
                                     )}
                                 </Box>
                             </Box>
-                            <Divider sx={{my: 3}} />
+                            <Divider sx={{my: 3}}/>
                             <Box className="lesson-feedback-section">
                                 <Typography variant="h6" gutterBottom>
                                     Ocjene i komentari
@@ -1327,7 +1687,8 @@ export default function VideoLectures() {
                                 {lessonReviews.length > 0 ? (
                                     <Stack spacing={2}>
                                         {lessonReviews.map(review => (
-                                            <Paper key={review.id} variant="outlined" className="lesson-review-card" sx={{p: 2}}>
+                                            <Paper key={review.id} variant="outlined" className="lesson-review-card"
+                                                   sx={{p: 2}}>
                                                 <Stack
                                                     direction={{xs: "column", sm: "row"}}
                                                     spacing={1}
@@ -1340,7 +1701,8 @@ export default function VideoLectures() {
                                                             {formatDisplayDate(review.createdAt)}
                                                         </Typography>
                                                     </Box>
-                                                    <Rating value={review.rating} readOnly precision={0.5} size="small" />
+                                                    <Rating value={review.rating} readOnly precision={0.5}
+                                                            size="small"/>
                                                 </Stack>
                                                 {review.comment && (
                                                     <Typography variant="body2" sx={{mt: 1.5}}>
@@ -1451,10 +1813,12 @@ export default function VideoLectures() {
                                             >
                                                 <Button component="label" variant="outlined" size="small">
                                                     {reviewPhoto ? "Zamijeni fotografiju" : "Dodaj fotografiju"}
-                                                    <input type="file" hidden accept="image/*" onChange={handleReviewPhotoChange} />
+                                                    <input type="file" hidden accept="image/*"
+                                                           onChange={handleReviewPhotoChange}/>
                                                 </Button>
                                                 {reviewPhoto && (
-                                                    <Button variant="text" color="secondary" size="small" onClick={() => setReviewPhoto(null)}>
+                                                    <Button variant="text" color="secondary" size="small"
+                                                            onClick={() => setReviewPhoto(null)}>
                                                         Ukloni fotografiju
                                                     </Button>
                                                 )}
@@ -1484,7 +1848,7 @@ export default function VideoLectures() {
                                 )}
                             </Box>
 
-                            <Divider sx={{my: 3}} />
+                            <Divider sx={{my: 3}}/>
                             <Box className="lesson-feedback-section">
                                 <Typography variant="h6" gutterBottom>
                                     Pitanja i odgovori
@@ -1492,7 +1856,8 @@ export default function VideoLectures() {
                                 {lessonQuestions.length > 0 ? (
                                     <Stack spacing={2}>
                                         {lessonQuestions.map(question => (
-                                            <Paper key={question.id} variant="outlined" className="lesson-question-card" sx={{p: 2}}>
+                                            <Paper key={question.id} variant="outlined" className="lesson-question-card"
+                                                   sx={{p: 2}}>
                                                 <Typography variant="subtitle2">{question.userName}</Typography>
                                                 <Typography variant="caption" color="text.secondary">
                                                     {formatDisplayDate(question.createdAt)}
@@ -1521,7 +1886,8 @@ export default function VideoLectures() {
                                                         ))}
                                                     </Stack>
                                                 ) : (
-                                                    <Typography variant="caption" color="text.secondary" sx={{mt: 2, display: "block"}}>
+                                                    <Typography variant="caption" color="text.secondary"
+                                                                sx={{mt: 2, display: "block"}}>
                                                         Instruktor još nije odgovorio na ovo pitanje.
                                                     </Typography>
                                                 )}

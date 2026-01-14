@@ -96,6 +96,7 @@ export default function LiveWorkshops() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [showSimulationMessage, setShowSimulationMessage] = useState<string | null>(null);
+    const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
 
     const sortedWorkshops = useMemo(() => {
         return [...workshops].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
@@ -317,9 +318,11 @@ export default function LiveWorkshops() {
                         Organizirajte nove radionice, sinkronizirajte termine s kalendarom i omogućite polaznicima da se prijave.
                     </Typography>
                 </Box>
-                <Button variant="contained" onClick={openDialogForCreate}>
-                    Kreiraj novu radionicu
-                </Button>
+                {isInstructor && (
+                    <Button variant="contained" onClick={openDialogForCreate}>
+                        Kreiraj novu radionicu
+                    </Button>
+                )}
             </Stack>
 
             <Stack spacing={2} sx={{mt: 3}}>
@@ -606,11 +609,13 @@ const WorkshopGrid = ({
                                         {workshop.description || "Instruktor nije dodao opis."}
                                     </Typography>
                                 </Box>
-                                <IconButton size="small" onClick={event => handleCardEdit(event, workshop, onEdit)}>
-                                    <Typography variant="body2" sx={{fontWeight: 600}}>
-                                        Uredi
-                                    </Typography>
-                                </IconButton>
+                                {workshop.instructorId === session?.user?.id && (
+                                    <IconButton size="small" onClick={event => handleCardEdit(event, workshop, onEdit)}>
+                                        <Typography variant="body2" sx={{fontWeight: 600}}>
+                                            Uredi
+                                        </Typography>
+                                    </IconButton>
+                                )}
                             </Stack>
 
                             <Stack direction="row" spacing={2} alignItems="center">
@@ -693,7 +698,8 @@ const WorkshopGrid = ({
                                         {spotsLeft <= 0 ? "Popunjeno" : userRegistration ? "Prijavljeni ste" : "Prijavi se"}
                                     </Button>
                                 )}
-                                {workshop.status === "upcoming" && (
+                                
+                                {workshop.status === "upcoming" && workshop.instructorId === session?.user?.id && (
                                     <Button
                                         variant="outlined"
                                         color="secondary"
@@ -705,7 +711,7 @@ const WorkshopGrid = ({
                                         Pokreni radionicu
                                     </Button>
                                 )}
-                                {workshop.status === "in_progress" && (
+                                {workshop.status === "in_progress" && workshop.instructorId === session?.user?.id && (
                                     <Button
                                         variant="contained"
                                         color="success"
@@ -717,7 +723,7 @@ const WorkshopGrid = ({
                                         Zaključi radionicu
                                     </Button>
                                 )}
-                                {workshop.status === "in_progress" && (
+                                {workshop.status === "in_progress" && workshop.instructorId === session?.user?.id && (
                                     <Button
                                         variant="text"
                                         color="warning"
