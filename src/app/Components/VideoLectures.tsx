@@ -1,6 +1,6 @@
 "use client";
 
-import React, {ChangeEvent, FormEvent, useMemo, useState, useEffect, useCallback} from "react";
+import React, {ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState} from "react";
 import type {SelectChangeEvent} from "@mui/material";
 import {
     Alert,
@@ -20,18 +20,17 @@ import {
     Divider,
     FormControl,
     FormControlLabel,
+    IconButton,
     InputAdornment,
     InputLabel,
     MenuItem,
     Paper,
     Rating,
     Select,
-    MenuItem,
     Stack,
     TextField,
-    Typography,
-    IconButton,
-    Tooltip
+    Tooltip,
+    Typography
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
@@ -489,32 +488,6 @@ export default function VideoLectures() {
             setLoading(false);
         }
     }, []);
-    // Učitaj kurseve iz API-ja
-    const loadCourses = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await fetch("/api/courses");
-            if (!response.ok) {
-                throw new Error("Greška pri učitavanju kurseva");
-            }
-            const data = await response.json();
-            // Ako API vraća prazan array ili nema podataka, koristi mock podatke
-            if (Array.isArray(data) && data.length === 0) {
-                console.log("Baza podataka je prazna, koristim mock podatke");
-                setCourses(mockCourses);
-            } else {
-                setCourses(data);
-            }
-        } catch (err) {
-            console.error("Error loading courses:", err);
-            setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
-            // Fallback na mock podatke ako API ne radi
-            setCourses(mockCourses);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
 
     useEffect(() => {
         void loadCourses();
@@ -522,7 +495,7 @@ export default function VideoLectures() {
 
     // Refresh funkcija
     const handleRefresh = () => {
-        loadCourses();
+        void loadCourses();
     };
 
     // Delete funkcija
@@ -582,13 +555,11 @@ export default function VideoLectures() {
     const safeParseArray = <T,>(value: T[] | string | null | undefined): T[] => {
         if (!value) return [];
         if (Array.isArray(value)) return value;
-        if (typeof value === 'string') {
-            try {
-                const parsed = JSON.parse(value);
-                return Array.isArray(parsed) ? parsed : [];
-            } catch {
-                return [];
-            }
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
         }
         return [];
     };
