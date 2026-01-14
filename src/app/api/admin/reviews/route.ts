@@ -10,12 +10,9 @@ export async function GET(request: NextRequest) {
         requireRole(userRole, [Role.ADMINISTRATOR]);
 
         const { searchParams } = new URL(request.url);
-        // const reported = searchParams.get("reported") === "true"; // Za buduću implementaciju filtriranja prijavljenih recenzija
         const lessonId = searchParams.get("lessonId");
 
-        const where: {
-            lessonId?: string;
-        } = {};
+        let where: any = {};
 
         if (lessonId) {
             where.lessonId = lessonId;
@@ -23,7 +20,12 @@ export async function GET(request: NextRequest) {
 
         const reviews = await prisma.lessonReview.findMany({
             where,
-            include: {
+            select: {
+                id: true,
+                rating: true,
+                comment: true,
+                userName: true,
+                createdAt: true,
                 lesson: {
                     select: {
                         id: true,
@@ -34,13 +36,6 @@ export async function GET(request: NextRequest) {
                                 title: true,
                             },
                         },
-                    },
-                },
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
                     },
                 },
             },
@@ -58,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// F-013: DELETE brisanje recenzije (admin)
+// F-013: DELETE brisanje recenzije (moderacija spornog sadržaja)
 export async function DELETE(request: NextRequest) {
     try {
         const { userRole } = await requireAuth();
@@ -74,6 +69,26 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
+        // Provjeri da li recenzija postoji
+        const existingReview = await prisma.lessonReview.findUnique({
+            where: { id: reviewId },
+            include: {
+                lesson: {
+                    include: {
+                        course: true,
+                    },
+                },
+            },
+        });
+
+        if (!existingReview) {
+            return NextResponse.json(
+                { message: "Recenzija nije pronađena" },
+                { status: 404 }
+            );
+        }
+
+        // Obriši recenziju
         await prisma.lessonReview.delete({
             where: { id: reviewId },
         });
