@@ -1,6 +1,6 @@
 "use client";
 
-import React, {ChangeEvent, FormEvent, useEffect, useMemo, useState} from "react";
+import React, {ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState} from "react";
 import type {SelectChangeEvent} from "@mui/material";
 import {
     Alert,
@@ -20,6 +20,7 @@ import {
     Divider,
     FormControl,
     FormControlLabel,
+    IconButton,
     InputAdornment,
     InputLabel,
     MenuItem,
@@ -28,10 +29,13 @@ import {
     Select,
     Stack,
     TextField,
+    Tooltip,
     Typography
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import DeleteIcon from "@mui/icons-material/Delete";
 import type {Course, Lesson} from "@/app/types/quiz";
 import {useLessonFeedback} from "@/app/functions/useLessonFeedback";
 import {useSession} from "next-auth/react";
@@ -416,6 +420,9 @@ const formatDisplayDate = (isoDate: string) => {
 
 export default function VideoLectures() {
     const {data: session} = useSession();
+    const userRole = (session?.user as { role?: string })?.role;
+    const canDelete = userRole === "INSTRUCTOR" || userRole === "ADMINISTRATOR";
+
     const {
         markLessonStarted,
         hasStartedLesson,
@@ -435,6 +442,7 @@ export default function VideoLectures() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     // F-015: Pretraga i filtriranje
     const [searchQuery, setSearchQuery] = useState("");
@@ -445,45 +453,116 @@ export default function VideoLectures() {
     const [minRating, setMinRating] = useState<number | null>(null);
     const [maxDuration, setMaxDuration] = useState<number | null>(null);
 
+    // Delete dialog state
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<{type: 'course' | 'lesson', id: string, title: string} | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
     // Instructor review dialog
     const [instructorReviewOpen, setInstructorReviewOpen] = useState(false);
     const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
     const [selectedInstructorName, setSelectedInstructorName] = useState<string>("");
 
-    const loadCourses = async () => {
-        setLoading(true);
-        setError(null);
+    const loadCourses = useCallback(async () => {
         try {
+            setLoading(true);
+            setError(null);
             const response = await fetch("/api/courses");
             if (!response.ok) {
-                // Umjesto throw, direktno postavljamo error i fallback
-                setError("Greška pri učitavanju tečaja");
-                setCourses(mockCourses);
-                setLoading(false);
-                return; // Izlazimo iz funkcije
+                throw new Error("Greška pri učitavanju kurseva");
             }
             const data = await response.json();
+            // Ako API vraća prazan array ili nema podataka, koristi mock podatke
             if (Array.isArray(data) && data.length === 0) {
                 console.log("Baza podataka je prazna, koristim mock podatke");
                 setCourses(mockCourses);
             } else {
                 setCourses(data);
             }
-        } catch (err: unknown) { // Dodano : unknown
+        } catch (err) {
             console.error("Error loading courses:", err);
-            setError(err instanceof Error ? err.message : "Greška pri učitavanju tečaja");
+            setError(err instanceof Error ? err.message : "Greška pri učitavanju kurseva");
+            // Fallback na mock podatke ako API ne radi
             setCourses(mockCourses);
         } finally {
             setLoading(false);
         }
-    };
-
-    // Učitaj kurseve iz API-ja
-    useEffect(() => {
-        void loadCourses();
     }, []);
 
+    useEffect(() => {
+        void loadCourses();
+    }, [loadCourses]);
+
+    // Refresh funkcija
+    const handleRefresh = () => {
+        void loadCourses();
+    };
+
+    // Delete funkcija
+    const handleDelete = async () => {
+        if (!itemToDelete) return;
+
+        try {
+            setDeleting(true);
+            setError(null);
+
+            // Debug: provjeri ID
+            console.log("Deleting:", itemToDelete);
+
+            // Provjeri da li je mock podatak (mock ID-evi počinju s "lesson-" ili "course-")
+            if (itemToDelete.id.startsWith('lesson-') || itemToDelete.id.startsWith('course-')) {
+                setError("Ne možete obrisati demo podatke. Ovo su primjeri koji nisu u bazi podataka.");
+                setDeleteDialogOpen(false);
+                setItemToDelete(null);
+                return;
+            }
+
+            const endpoint = itemToDelete.type === 'course'
+                ? `/api/courses/${itemToDelete.id}`
+                : `/api/lessons/${itemToDelete.id}`;
+
+            console.log("DELETE endpoint:", endpoint);
+
+            const response = await fetch(endpoint, { method: 'DELETE' });
+
+            console.log("Response status:", response.status);
+
+            const data = await response.json();
+            console.log("Response data:", data);
+
+            if (!response.ok) {
+                throw new Error(data.message || `Greška pri brisanju ${itemToDelete.type === 'course' ? 'tečaja' : 'lekcije'}`);
+            }
+
+            setSuccessMessage(`${itemToDelete.type === 'course' ? 'Tečaj' : 'Lekcija'} "${itemToDelete.title}" uspješno obrisana`);
+            setDeleteDialogOpen(false);
+            setItemToDelete(null);
+
+            // Reload data
+            await loadCourses();
+        } catch (err) {
+            console.error("Error deleting:", err);
+            setError(err instanceof Error ? err.message : "Greška pri brisanju");
+            setDeleteDialogOpen(false);
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const allLessons = useLessonCards(courses);
+
+    // Helper funkcija za sigurno parsiranje JSON polja
+    const safeParseArray = <T,>(value: T[] | string | null | undefined): T[] => {
+        if (!value) return [];
+        if (Array.isArray(value)) return value;
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+        return [];
+    };
 
     // F-015: Filtriranje lekcija
     const filteredLessons = useMemo(() => {
@@ -492,24 +571,39 @@ export default function VideoLectures() {
                 const query = searchQuery.toLowerCase();
                 const matchesTitle = lesson.title.toLowerCase().includes(query);
                 const matchesDescription = lesson.description?.toLowerCase().includes(query) ?? false;
-                const matchesIngredients = lesson.ingredients?.some(ing =>
-                    ing.name?.toLowerCase().includes(query)
-                ) ?? false;
+                const matchesCourse = course.title.toLowerCase().includes(query);
 
-                if (!matchesTitle && !matchesDescription && !matchesIngredients) return false;
+                // Sigurno parsiraj ingredients
+                const ingredients = safeParseArray(lesson.ingredients);
+                const matchesIngredients = ingredients.some((ing: {name?: string}) =>
+                    ing.name?.toLowerCase().includes(query)
+                );
+
+                if (!matchesTitle && !matchesDescription && !matchesCourse && !matchesIngredients) {
+                    return false;
+                }
+            }
+            
+            // Filtriranje po kuhinji
+            if (selectedCuisine && lesson.cuisine !== selectedCuisine) {
+                return false;
             }
 
             if (selectedCuisine && lesson.cuisine !== selectedCuisine) return false;
             if (selectedDifficulty && lesson.difficultyLevel !== selectedDifficulty) return false;
 
             if (selectedDietaryTag) {
-                const dietaryTags = lesson.dietaryTags || [];
-                if (!dietaryTags.includes(selectedDietaryTag)) return false;
+                const dietaryTags = safeParseArray(lesson.dietaryTags);
+                if (!dietaryTags.includes(selectedDietaryTag)) {
+                    return false;
+                }
             }
 
             if (selectedAllergen) {
-                const allergens = lesson.allergens || [];
-                if (allergens.includes(selectedAllergen)) return false;
+                const allergens = safeParseArray(lesson.allergens);
+                if (allergens.includes(selectedAllergen)) {
+                    return false;
+                }
             }
 
             if (minRating !== null) {
@@ -542,9 +636,10 @@ export default function VideoLectures() {
     const availableDietaryTags = useMemo(() => {
         const tags = new Set<string>();
         allLessons.forEach(({lesson}) => {
-            if (lesson.dietaryTags && Array.isArray(lesson.dietaryTags)) {
-                lesson.dietaryTags.forEach(tag => tags.add(tag));
-            }
+            const dietaryTags = safeParseArray(lesson.dietaryTags);
+            dietaryTags.forEach((tag: string) => {
+                if (tag) tags.add(tag);
+            });
         });
         return Array.from(tags).sort();
     }, [allLessons]);
@@ -552,12 +647,17 @@ export default function VideoLectures() {
     const availableAllergens = useMemo(() => {
         const allergens = new Set<string>();
         allLessons.forEach(({lesson}) => {
-            if (lesson.allergens && Array.isArray(lesson.allergens)) {
-                lesson.allergens.forEach(allergen => allergens.add(allergen));
-            }
+            const lessonAllergens = safeParseArray(lesson.allergens);
+            lessonAllergens.forEach((allergen: string) => {
+                if (allergen) allergens.add(allergen);
+            });
         });
         return Array.from(allergens).sort();
     }, [allLessons]);
+
+    // Check if any filters are available
+    const hasFilters = availableCuisines.length > 0 || availableDifficulties.length > 0 ||
+                       availableDietaryTags.length > 0 || availableAllergens.length > 0;
 
     const [selectedLesson, setSelectedLesson] = useState<LessonWithCourse | null>(null);
     const [isLessonDialogOpen, setLessonDialogOpen] = useState(false);
@@ -678,7 +778,6 @@ export default function VideoLectures() {
             setReviewPhoto(null);
         } catch (error) {
             console.error("Error submitting review:", error);
-            // Error handling može biti dodan ovdje
         }
     };
 
@@ -715,7 +814,6 @@ export default function VideoLectures() {
             setQuestionText("");
         } catch (error) {
             console.error("Error submitting question:", error);
-            // Error handling može biti dodan ovdje
         }
     };
 
@@ -747,7 +845,6 @@ export default function VideoLectures() {
             }));
         } catch (error) {
             console.error("Error submitting answer:", error);
-            // Error handling može biti dodan ovdje
         }
     };
 
@@ -779,7 +876,6 @@ export default function VideoLectures() {
             }));
         } catch (error) {
             console.error("Error responding to review:", error);
-            // Error handling može biti dodan ovdje
         }
     };
 
@@ -935,12 +1031,21 @@ export default function VideoLectures() {
 
     return (
         <Box>
-            <Typography variant="h4" gutterBottom>
-                Video lekcije i kvizovi
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>
-                Pregledajte lekcije i provjerite znanje na kraju svake lekcije kroz kviz.
-            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                <Box>
+                    <Typography variant="h4" gutterBottom>
+                        Video lekcije i kvizovi
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Pregledajte lekcije i provjerite znanje na kraju svake lekcije kroz kviz.
+                    </Typography>
+                </Box>
+                <Tooltip title="Osvježi podatke">
+                    <IconButton onClick={handleRefresh} disabled={loading} color="primary" size="large">
+                        <RefreshIcon />
+                    </IconButton>
+                </Tooltip>
+            </Box>
 
             {isInstructor && (
                 <Button variant="contained" onClick={() => setOpen(true)}>
@@ -1127,8 +1232,14 @@ export default function VideoLectures() {
             )}
 
             {error && (
-                <Alert severity="error" sx={{mb: 2}}>
+                <Alert severity="error" sx={{mb: 2}} onClose={() => setError(null)}>
                     {error}
+                </Alert>
+            )}
+
+            {successMessage && (
+                <Alert severity="success" sx={{mb: 2}} onClose={() => setSuccessMessage(null)}>
+                    {successMessage}
                 </Alert>
             )}
 
@@ -1143,7 +1254,7 @@ export default function VideoLectures() {
                         <Box sx={{display: "flex", gap: 2, flexWrap: "wrap"}}>
                             <TextField
                                 sx={{flex: "1 1 300px", minWidth: 250}}
-                                placeholder="Pretraži po naslovu, opisu ili sastojcima..."
+                                placeholder="Pretraži po naslovu, opisu, tečaju ili sastojcima..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 slotProps={{
@@ -1245,6 +1356,14 @@ export default function VideoLectures() {
                                 color="primary"
                             />
                         </Box>
+
+                        {/* Info poruka ako nema filtera */}
+                        {!hasFilters && (
+                            <Alert severity="info">
+                                Napredni filteri (kuhinja, težina, prehrambeni plan, alergeni) nisu dostupni jer lekcije u bazi nemaju te podatke popunjene.
+                                Pretraga po naslovu, opisu i sastojcima funkcionira.
+                            </Alert>
+                        )}
                     </Stack>
                 </Paper>
             )}
@@ -1266,9 +1385,41 @@ export default function VideoLectures() {
                                 sx={{
                                     flex: "1 1 280px",
                                     minWidth: 280,
-                                    maxWidth: 380
+                                    maxWidth: 380,
+                                    position: "relative"
                                 }}
                             >
+                                {/* Delete button for instructors/admins */}
+                                {canDelete && (
+                                    <Tooltip title="Obriši lekciju">
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setItemToDelete({
+                                                    type: 'lesson',
+                                                    id: lesson.id,
+                                                    title: lesson.title
+                                                });
+                                                setDeleteDialogOpen(true);
+                                            }}
+                                            sx={{
+                                                position: "absolute",
+                                                top: 8,
+                                                right: 8,
+                                                zIndex: 10,
+                                                bgcolor: "rgba(0,0,0,0.6)",
+                                                "&:hover": {
+                                                    bgcolor: "rgba(0,0,0,0.8)"
+                                                }
+                                            }}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
+
                                 <Card className="lesson-card" sx={{height: "100%"}}>
                                     <CardActionArea onClick={() => handleOpenLesson({lesson, course})}>
                                         <CardMedia
@@ -1319,6 +1470,30 @@ export default function VideoLectures() {
                     })}
                 </Box>
             )}
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+                <DialogTitle>Potvrda brisanja</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Jeste li sigurni da želite obrisati {itemToDelete?.type === 'course' ? 'tečaj' : 'lekciju'} &quot;{itemToDelete?.title}&quot;?
+                    </Typography>
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                        Ova akcija je nepovratna! Svi povezani podaci (kvizovi, recenzije, pitanja) će također biti obrisani.
+                    </Alert>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setDeleteDialogOpen(false)}>Odustani</Button>
+                    <Button
+                        onClick={handleDelete}
+                        color="error"
+                        variant="contained"
+                        disabled={deleting}
+                    >
+                        {deleting ? <CircularProgress size={20} /> : "Obriši"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={isLessonDialogOpen && !!selectedLesson} onClose={handleCloseLesson} maxWidth="md" fullWidth>
                 {selectedLesson && (
@@ -1429,7 +1604,7 @@ export default function VideoLectures() {
                                                     disabled={!hasIngredients}
                                                     size="small"
                                                 >
-                                                    Ingredients
+                                                    Sastojci
                                                 </Button>
                                                 <Button
                                                     variant={activeInfoTab === "nutrition" ? "contained" : "outlined"}
@@ -1437,7 +1612,7 @@ export default function VideoLectures() {
                                                     disabled={!hasNutrition}
                                                     size="small"
                                                 >
-                                                    Nutrition
+                                                    Nutritivne vrijednosti
                                                 </Button>
                                             </Stack>
                                             {activeInfoTab === "ingredients" ? (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { cache } from "@/app/lib/cache";
 
 // GET /api/lessons/:id - Dohvati lekciju po ID
 export async function GET(
@@ -164,6 +165,9 @@ export async function PUT(
       },
     });
 
+    // Invalidate cache after update
+    cache.delete("courses:all");
+
     // Transformacija za frontend
     const transformedLesson = {
       id: lesson.id,
@@ -247,6 +251,9 @@ export async function DELETE(
       where: { id },
     });
 
+    // VAŽNO: Invalidate cache after delete
+    cache.delete("courses:all");
+
     return NextResponse.json({ message: "Lekcija je uspješno obrisana" });
   } catch (error) {
     console.error("Error deleting lesson:", error);
@@ -260,4 +267,3 @@ export async function DELETE(
     );
   }
 }
-

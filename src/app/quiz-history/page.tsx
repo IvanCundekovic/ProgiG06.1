@@ -8,7 +8,8 @@ import {
     AppBar,
     Toolbar,
     Container,
-    CircularProgress
+    CircularProgress,
+    useTheme
 } from "@mui/material";
 import {useRouter} from "next/navigation";
 import {QuizResult} from "../types/quiz";
@@ -17,6 +18,8 @@ import {useSession} from "next-auth/react";
 
 export default function QuizHistory() {
     const router = useRouter();
+    const theme = useTheme();
+    const isDarkMode = theme.palette.mode === 'dark';
     const {data: session} = useSession();
     const [results, setResults] = useState<QuizResult[]>([]);
     const [loading, setLoading] = useState(true);
@@ -69,7 +72,7 @@ export default function QuizHistory() {
         <Box sx={{display: "flex", flexDirection: "column", minHeight: "100vh"}}>
             <AppBar position="fixed" sx={{zIndex: (theme) => theme.zIndex.drawer + 1, background: "#df0000ff"}}>
                 <Toolbar sx={{display: "flex", justifyContent: "space-between"}}>
-                    <Typography variant="h6" noWrap>
+                    <Typography variant="h6" noWrap sx={{ color: '#ffffff' }}>
                         Povijest rezultata kvizova
                     </Typography>
                     <Button color="inherit" variant="outlined" onClick={handleBack}>
@@ -84,13 +87,19 @@ export default function QuizHistory() {
                     flexGrow: 1,
                     p: 3,
                     mt: 8,
-                    background: "linear-gradient(135deg, #e2e2e2ff, #818380)",
-                    color: "black",
+                    background: isDarkMode 
+                        ? "linear-gradient(135deg, #1a1a1a, #2d2d2d)" 
+                        : "linear-gradient(135deg, #e2e2e2ff, #818380)",
+                    color: isDarkMode ? '#ffffff' : 'black',
                     minHeight: "calc(100vh - 64px)"
                 }}
             >
                 <Container maxWidth="lg">
-                    <Typography variant="h4" gutterBottom sx={{mb: 4}}>
+                    <Typography 
+                        variant="h4" 
+                        gutterBottom 
+                        sx={{ mb: 4, color: isDarkMode ? '#ffffff' : 'black' }}
+                    >
                         Povijest rezultata
                     </Typography>
 
@@ -100,10 +109,17 @@ export default function QuizHistory() {
                         </Box>
                     ) : results.length === 0 ? (
                         <Box className="quiz-empty-state">
-                            <Typography variant="h6" color="text.secondary" gutterBottom>
+                            <Typography 
+                                variant="h6" 
+                                gutterBottom
+                                sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                            >
                                 Nemate još riješenih kvizova
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography 
+                                variant="body2"
+                                sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                            >
                                 Riješite kvizove u lekcijama da biste vidjeli svoje rezultate ovdje.
                             </Typography>
                             <Button
@@ -127,18 +143,31 @@ export default function QuizHistory() {
                                             mb: 2,
                                             p: 3,
                                             borderRadius: 2,
-                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                            bgcolor: isDarkMode ? '#2a2a2a' : 'background.paper',
+                                            border: isDarkMode ? '1px solid #444' : 'none'
                                         }}
                                     >
                                         <Box className="quiz-history-header">
                                             <Box>
-                                                <Typography variant="h6" className="quiz-history-title" gutterBottom>
+                                                <Typography 
+                                                    variant="h6" 
+                                                    className="quiz-history-title" 
+                                                    gutterBottom
+                                                    sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+                                                >
                                                     {result.quizTitle}
                                                 </Typography>
-                                                <Typography variant="body2" color="text.secondary">
+                                                <Typography 
+                                                    variant="body2"
+                                                    sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                                                >
                                                     Lekcija: {result.lessonTitle}
                                                 </Typography>
-                                                <Typography variant="body2" color="text.secondary">
+                                                <Typography 
+                                                    variant="body2"
+                                                    sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                                                >
                                                     Kurs: {result.courseTitle}
                                                 </Typography>
                                             </Box>
@@ -147,16 +176,24 @@ export default function QuizHistory() {
                                                     variant="h4"
                                                     className="quiz-history-score"
                                                     color="primary"
+                                                    sx={{ color: isDarkMode ? '#4caf50' : 'primary.main' }}
                                                 >
                                                     {result.score}/{result.totalQuestions}
                                                 </Typography>
-                                                <Typography variant="h6" color="text.secondary">
+                                                <Typography 
+                                                    variant="h6"
+                                                    sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                                                >
                                                     {result.percentage}%
                                                 </Typography>
                                             </Box>
                                         </Box>
                                         <Box className="quiz-history-meta" sx={{mt: 2}}>
-                                            <Typography variant="caption" className="quiz-history-date">
+                                            <Typography 
+                                                variant="caption" 
+                                                className="quiz-history-date"
+                                                sx={{ color: isDarkMode ? '#b0b0b0' : 'text.secondary' }}
+                                            >
                                                 Riješeno: {formatDate(result.completedAt)}
                                             </Typography>
                                             <Typography
@@ -168,20 +205,24 @@ export default function QuizHistory() {
                                                 Status: {result.isCompleted ? "Dovršeno" : "Nedovršeno"}
                                             </Typography>
                                         </Box>
-                                        {/* Detalji odgovora */}
-                                        <Box sx={{mt: 2, pt: 2, borderTop: "1px solid #e0e0e0"}}>
-                                            <Typography variant="subtitle2" gutterBottom>
+                                        <Box sx={{mt: 2, pt: 2, borderTop: isDarkMode ? "1px solid #444" : "1px solid #e0e0e0"}}>
+                                            <Typography 
+                                                variant="subtitle2" 
+                                                gutterBottom
+                                                sx={{ color: isDarkMode ? '#ffffff' : 'text.primary' }}
+                                            >
                                                 Detalji odgovora:
                                             </Typography>
                                             {result.answers.map((answer, index) => {
-                                                {/* Pitanja se učitavaju iz QuizResult.answers JSON-a */}
                                                 return (
                                                     <Typography
                                                         key={index}
                                                         variant="caption"
                                                         display="block"
-                                                        color="text.secondary"
-                                                        sx={{mt: 0.5}}
+                                                        sx={{
+                                                            mt: 0.5,
+                                                            color: isDarkMode ? '#b0b0b0' : 'text.secondary'
+                                                        }}
                                                     >
                                                         Pitanje {index + 1}: Odgovor {answer.selectedAnswer + 1}
                                                     </Typography>
@@ -197,4 +238,3 @@ export default function QuizHistory() {
         </Box>
     );
 }
-
