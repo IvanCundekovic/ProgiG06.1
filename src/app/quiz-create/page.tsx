@@ -15,7 +15,6 @@ import {
     Alert,
     CircularProgress,
     Card,
-    CardContent,
     Divider,
     Chip,
     Stack,
@@ -30,7 +29,6 @@ import {
     CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 
 interface QuizQuestion {
     text: string;
@@ -46,7 +44,6 @@ interface Lesson {
 
 export default function CreateQuiz() {
     const router = useRouter();
-    const { data: session } = useSession();
     
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -68,12 +65,12 @@ export default function CreateQuiz() {
         try {
             setLoadingLessons(true);
             const response = await fetch("/api/lessons");
-            if (!response.ok) throw new Error("Greška pri učitavanju lekcija");
+            if (!response.ok) throw new Error("Greska pri ucitavanju lekcija");
             const data = await response.json();
             setLessons(data);
         } catch (err) {
             console.error("Error loading lessons:", err);
-            setError("Nije moguće učitati lekcije");
+            setError("Nije moguce ucitati lekcije");
         } finally {
             setLoadingLessons(false);
         }
@@ -129,7 +126,7 @@ export default function CreateQuiz() {
                 return false;
             }
             if (q.correctAnswer < 0 || q.correctAnswer >= q.options.length) {
-                setError(`Pitanje ${i + 1} nema označen točan odgovor`);
+                setError(`Pitanje ${i + 1} nema oznacen tocan odgovor`);
                 return false;
             }
         }
@@ -165,7 +162,7 @@ export default function CreateQuiz() {
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || "Greška pri kreiranju kviza");
+                throw new Error(errorData.message || "Greska pri kreiranju kviza");
             }
 
             setSuccess(true);
@@ -173,7 +170,7 @@ export default function CreateQuiz() {
                 router.push("/Homepage");
             }, 2000);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Greška pri kreiranju kviza");
+            setError(err instanceof Error ? err.message : "Greska pri kreiranju kviza");
         } finally {
             setLoading(false);
         }
@@ -213,7 +210,7 @@ export default function CreateQuiz() {
 
                     {success && (
                         <Alert severity="success" sx={{ mb: 3 }} icon={<CheckCircleIcon />}>
-                            Kviz uspješno kreiran! Preusmjeravanje...
+                            Kviz uspjesno kreiran! Preusmjeravanje...
                         </Alert>
                     )}
 
@@ -334,7 +331,7 @@ export default function CreateQuiz() {
                                                     onClick={() => updateQuestion(qIndex, "correctAnswer", oIndex)}
                                                     sx={{ minWidth: 120 }}
                                                 >
-                                                    {question.correctAnswer === oIndex ? "Točno ✓" : "Odaberi"}
+                                                    {question.correctAnswer === oIndex ? "Tocno ✓" : "Odaberi"}
                                                 </Button>
                                             </Box>
                                         ))}

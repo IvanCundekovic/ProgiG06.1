@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const lessonId = searchParams.get("lessonId");
 
-        let where: any = {};
+        const where: Record<string, unknown> = {};
 
         if (lessonId) {
             where.lessonId = lessonId;

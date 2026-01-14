@@ -4,7 +4,7 @@ import { prisma } from "@/prisma";
 /**
  * OAuth2 klijent za Google Calendar API
  */
-function getOAuth2Client(userId: string) {
+function getOAuth2Client() {
     const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CALENDAR_CLIENT_ID,
         process.env.GOOGLE_CALENDAR_CLIENT_SECRET,
@@ -26,7 +26,7 @@ async function getCalendarSettings(userId: string) {
         return null;
     }
 
-    const oauth2Client = getOAuth2Client(userId);
+    const oauth2Client = getOAuth2Client();
     oauth2Client.setCredentials({
         access_token: settings.accessToken,
         refresh_token: settings.refreshToken,

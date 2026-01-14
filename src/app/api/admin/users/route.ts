@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth, requireRole } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { Prisma } from '@prisma/client';
 
 // F-013: GET svi korisnici (admin)
 export async function GET(request: NextRequest) {
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
         const search = searchParams.get("search");
         const pendingVerification = searchParams.get("pendingVerification") === "true";
 
-        let where: any = {};
+        let where: Prisma.UserWhereInput = {};
 
         // Filter za pending verifikacije (ima prioritet)
         if (pendingVerification) {

@@ -9,7 +9,6 @@ import {
     Button,
     Chip,
     Stack,
-    Grid,
     Tabs,
     Tab,
     CircularProgress,
@@ -52,13 +51,13 @@ export default function Extra() {
             setLoading(true);
             const response = await fetch("/api/quizzes");
             if (!response.ok) {
-                throw new Error("Greška pri učitavanju kvizova");
+                throw new Error("Greska pri ucitavanju kvizova");
             }
             const data = await response.json();
             setQuizzes(data);
         } catch (err) {
             console.error("Error loading quizzes:", err);
-            setError(err instanceof Error ? err.message : "Greška pri učitavanju kvizova");
+            setError(err instanceof Error ? err.message : "Greska pri ucitavanju kvizova");
         } finally {
             setLoading(false);
         }
@@ -131,14 +130,19 @@ export default function Extra() {
                                 Nema dostupnih kvizova
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                {canCreateQuiz ? "Kliknite 'Kreiraj kviz' za dodavanje novog kviza." : "Kvizovi će biti dostupni uskoro."}
+                                {canCreateQuiz ? "Kliknite 'Kreiraj kviz' za dodavanje novog kviza." : "Kvizovi ce biti dostupni uskoro."}
                             </Typography>
                         </Box>
                     ) : (
                         <Box className="extra-quiz-grid">
-                            <Grid container spacing={3}>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                                 {quizzes.map((quiz) => (
-                                    <Grid item xs={12} sm={6} md={4} key={quiz.id}>
+                                    <Box
+                                        key={quiz.id}
+                                        sx={{
+                                            width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' }
+                                        }}
+                                    >
                                         <Card className="extra-quiz-card">
                                             <CardContent sx={{flexGrow: 1}}>
                                                 <Stack
@@ -173,9 +177,9 @@ export default function Extra() {
                                                 </Box>
                                             </CardContent>
                                         </Card>
-                                    </Grid>
+                                    </Box>
                                 ))}
-                            </Grid>
+                            </Box>
                         </Box>
                     )}
 
