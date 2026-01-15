@@ -78,6 +78,15 @@ export default function ProfilePage() {
         }
     }, [status, router]);
 
+    // UC-5: ako je prisilna promjena lozinke, prebaci na tab "Promjena lozinke"
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const force = params.get("forcePasswordChange") === "1";
+        if (force || session?.user?.mustChangePassword) {
+            setActiveTab(2);
+        }
+    }, [session?.user?.mustChangePassword]);
+
     const loadProfile = async () => {
         try {
             setLoading(true);

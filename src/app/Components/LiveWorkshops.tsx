@@ -87,7 +87,8 @@ export default function LiveWorkshops() {
         clearNotifications
     } = useLiveWorkshops();
 
-    const {markLessonStarted} = useLessonFeedback();
+    // NOTE: markLessonStarted se više ne koristi ovdje (demo requirementi).
+    useLessonFeedback();
 
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [formState, setFormState] = useState<WorkshopFormState>(defaultFormState);
