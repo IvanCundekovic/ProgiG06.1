@@ -67,6 +67,13 @@ export default function ProfilePage() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
 
+    const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
+    const [instructorBio, setInstructorBio] = useState("");
+    const [myRecipes, setMyRecipes] = useState<any[]>([]);
+    const [recipesLoading, setRecipesLoading] = useState(false);
+    const [verificationFile, setVerificationFile] = useState<File | null> (null);
+    const [verificationStatus, setVerificationStatus] = useState<string | null> (null);
+
     useEffect(() => {
         if (status === "unauthenticated") {
             router.push("/LoginPage");
@@ -75,6 +82,11 @@ export default function ProfilePage() {
 
         if (status === "authenticated") {
             loadProfile();
+        }
+
+        if (activeTab === 4 && isInstructor) 
+        {
+            loadInstructorRecipes();
         }
     }, [status, router]);
 
@@ -88,6 +100,7 @@ export default function ProfilePage() {
 
             setName(data.name || "");
             setSkillLevel(data.userProfile?.skillLevel || "");
+            setInstructorBio(data.userProfile?.instructorBio || "");
             setAllergies(safeParseArray(data.userProfile?.allergies));
             setFavoriteCuisines(safeParseArray(data.userProfile?.favoriteCuisines));
             setDietaryRestrictions(safeParseArray(data.userProfile?.dietaryRestrictions));
@@ -125,6 +138,7 @@ export default function ProfilePage() {
                     favoriteCuisines: safeFavoriteCuisines.length > 0 ? safeFavoriteCuisines : null,
                     dietaryRestrictions: safeDietaryRestrictions.length > 0 ? safeDietaryRestrictions : null,
                     notes: notes || null,
+                    instructorBio: isInstructor ? instructorBio : null,
                 }),
             });
 
@@ -223,6 +237,37 @@ export default function ProfilePage() {
         );
     }
 
+    const loadInstructorRecipes = async () => {
+        try {
+            setRecipesLoading(true);
+            const res = await fetch("/api/courses");
+            if (!res.ok) throw new Error ("Greška pri učitavanju recepata");
+            setMyRecipes(await res.json()); 
+        } finally {
+            setRecipesLoading(false);
+        }
+    }
+
+    const handleUploadVerification = async () => {
+        if (!verificationFile) return;
+
+        const formData = new FormData();
+        formData.append("file", verificationFile);
+
+        const res = await fetch("/api/instructors/verify", {
+            method: "POST",
+            body: formData,
+        });
+
+        if (!res.ok) {
+            alert("Greška pri uploadu dokumenta");
+            return;
+        }
+
+        setVerificationFile(null);
+        alert("Dokument poslan na verifikaciju");
+    };
+
     // Safe arrays for rendering - ensures they're never null/undefined
     const safeAllergies = allergies ?? [];
     const safeFavoriteCuisines = favoriteCuisines ?? [];
@@ -247,11 +292,14 @@ export default function ProfilePage() {
             )}
 
             <Paper sx={{ p: 3, mt: 2 }}>
-                <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+                <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} variant = "scrollable" scrollButtons = "auto">
                     <Tab label="Osnovni podaci" />
                     <Tab label="Preferencije" />
                     <Tab label="Promjena lozinke" />
                     <Tab label="GDPR & Sigurnost" />
+                    {isInstructor && <Tab label = "Moji recepti" />}
+                    {isInstructor && <Tab label = "Biografija"/>}
+                    {isInstructor && <Tab label = "Verifikacija"/>}
                 </Tabs>
 
                 {activeTab === 0 && (
@@ -478,6 +526,103 @@ export default function ProfilePage() {
                                 fullWidth
                             >
                                 Obriši moj račun
+                            </Button>
+                        </Stack>
+                    </Box>
+                )}
+
+                {activeTab === 4 && (
+                    <Box sx={{ mt: 3 }}>
+                        <Divider sx={{ my: 3 }} />
+
+                        <Typography variant="h6" gutterBottom>
+                        Moji recepti
+                        </Typography>
+
+                        {recipesLoading ? (
+                        <CircularProgress />
+                        ) : myRecipes.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            Još nemate objavljenih recepata.
+                        </Typography>
+                        ) : (
+                        <Stack spacing={1}>
+                            {myRecipes.map((r) => (
+                            <Paper key={r.id} sx={{ p: 2 }}>
+                                <Typography fontWeight={600}>{r.title}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                Tečaj: {r.courseTitle}
+                                </Typography>
+                                {!r.published && (
+                                <Chip size="small" label="Neobjavljeno" sx={{ mt: 1 }} />
+                                )}
+                            </Paper>
+                            ))}
+                        </Stack>
+                        )}
+                    </Box>
+                )}
+                {activeTab === 5 && (
+                    <Box sx = {{ mt: 3 }}>
+                        <Typography variant = "h6" gutterBottom>
+                            Biografija instruktora
+                        </Typography>
+
+                        <TextField 
+                            fullWidth
+                            multiline
+                            rows = {6}
+                            label = "O meni"
+                            placeholder = "Ispričajte studentima tko ste, vaše iskustvo, still kuhanja..."
+                            value = {instructorBio}
+                            onChange = {(e) => setInstructorBio(e.target.value)}
+                        />
+
+                        <Button 
+                            variant = "contained"
+                            onClick = {handleSaveProfile}
+                            disabled = {saving}
+                            sx = {{ mt: 2 }}
+                        >
+                        {saving ? <CircularProgress size = {24}/> : "Spremi biografiju"}
+                        </Button>
+                    </Box>
+                )}
+                {activeTab === 6 && (
+                    <Box sx = {{ mt: 3 }}>
+                        <Divider sx={{ my: 3 }} />
+
+                        <Typography variant="h6">
+                        Verifikacija instruktora
+                        </Typography>
+
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Učitajte dokument (certifikat, diploma, identifikacija).
+                        </Typography>
+                        <Stack spacing={2} sx={{ mt: 3 }}>
+                            <Button variant="outlined" component="label">
+                            Odaberi dokument
+                            <input
+                                type="file"
+                                hidden
+                                accept=".pdf,.jpg,.png"
+                                onChange={(e) => setVerificationFile(e.target.files?.[0] || null)}
+                            />
+                            </Button>
+
+                            {verificationFile && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                                Odabrano: {verificationFile.name}
+                            </Typography>
+                            )}
+
+                            <Button
+                            variant="contained"
+                            sx={{ mt: 2 }}
+                            disabled={!verificationFile}
+                            onClick={handleUploadVerification}
+                            >
+                            Pošalji na verifikaciju
                             </Button>
                         </Stack>
                     </Box>
