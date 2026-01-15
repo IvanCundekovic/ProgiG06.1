@@ -74,6 +74,15 @@ interface Review {
     };
 }
 
+type CourseAdmin = {
+    id: string;
+    title: string;
+    description: string;
+    instructorId: string;
+    instructorName: string;
+    createdAt: string;
+};
+
 export default function AdminPanel() {
     const { data: session, status } = useSession();
     const router = useRouter();
@@ -81,6 +90,7 @@ export default function AdminPanel() {
     const [users, setUsers] = useState<User[]>([]);
     const [pendingVerifications, setPendingVerifications] = useState<User[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
+    const [courses, setCourses] = useState<CourseAdmin[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -129,6 +139,11 @@ export default function AdminPanel() {
                 if (!response.ok) throw new Error("Greška pri učitavanju recenzija");
                 const data = await response.json();
                 setReviews(data);
+            } else if (activeTab === 3) {
+                const response = await fetch("/api/courses");
+                if (!response.ok) throw new Error("Greška pri učitavanju tečajeva");
+                const data = await response.json();
+                setCourses(data);
             }
         } catch (err) {
             console.error("Error loading data:", err);
@@ -216,6 +231,24 @@ export default function AdminPanel() {
         }
     };
 
+    const handleDeleteCourse = async (courseId: string) => {
+        if (!confirm("Jeste li sigurni da želite obrisati ovaj tečaj? Ovo će obrisati i povezane lekcije.")) return;
+
+        try {
+            const response = await fetch(`/api/courses/${courseId}`, {
+                method: "DELETE",
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Greška pri brisanju tečaja");
+
+            setSuccess("Tečaj uspješno obrisan");
+            await loadData();
+        } catch (err) {
+            console.error("Error deleting course:", err);
+            setError(err instanceof Error ? err.message : "Greška pri brisanju tečaja");
+        }
+    };
+
     // UC-006: Verify instructor
     const handleVerifyInstructor = async (approve: boolean) => {
         if (!userToVerify) return;
@@ -299,6 +332,7 @@ export default function AdminPanel() {
                         }
                     />
                     <Tab label="Recenzije" />
+                    <Tab label="Tečajevi" />
                 </Tabs>
 
                 {loading ? (
@@ -486,6 +520,42 @@ export default function AdminPanel() {
                                                         size="small"
                                                         color="error"
                                                         onClick={() => handleDeleteReview(review.id)}
+                                                    >
+                                                        <DeleteIcon />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        )}
+
+                        {/* Tab 3: Tečajevi (UC-12) */}
+                        {activeTab === 3 && (
+                            <TableContainer>
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Naziv</TableCell>
+                                            <TableCell>Instruktor</TableCell>
+                                            <TableCell>Datum</TableCell>
+                                            <TableCell>Akcije</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {courses.map((course) => (
+                                            <TableRow key={course.id}>
+                                                <TableCell>{course.title}</TableCell>
+                                                <TableCell>{course.instructorName}</TableCell>
+                                                <TableCell>
+                                                    {course.createdAt ? new Date(course.createdAt).toLocaleDateString("hr-HR") : "-"}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="error"
+                                                        onClick={() => handleDeleteCourse(course.id)}
                                                     >
                                                         <DeleteIcon />
                                                     </IconButton>

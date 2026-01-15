@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { cache } from "@/app/lib/cache";
 
 // GET /api/courses/:id - Dohvati kurs po ID
 export async function GET(
@@ -47,6 +48,8 @@ export async function GET(
       id: course.id,
       title: course.title,
       description: course.description || "",
+      difficultyLevel: course.difficultyLevel || null,
+      duration: course.duration || null,
       instructorId: course.instructorId,
       instructorName: course.instructor.name || course.instructor.email,
       lessons: course.lessons.map((lesson) => ({
@@ -100,7 +103,7 @@ export async function PUT(
     const { userId, userRole } = await requireAuth();
 
     const body = await request.json();
-    const { title, description } = body;
+    const { title, description, difficultyLevel, duration } = body;
 
     // Provjeri da li kurs postoji
     const existingCourse = await prisma.course.findUnique({
@@ -130,6 +133,15 @@ export async function PUT(
       data: {
         ...(title && { title }),
         ...(description !== undefined && { description: description || null }),
+        ...(difficultyLevel !== undefined && { difficultyLevel: difficultyLevel || null }),
+        ...(duration !== undefined && {
+          duration:
+            typeof duration === "number"
+              ? duration
+              : duration
+                ? Number(duration)
+                : null,
+        }),
       },
       include: {
         instructor: {
@@ -159,6 +171,8 @@ export async function PUT(
       id: course.id,
       title: course.title,
       description: course.description || "",
+      difficultyLevel: course.difficultyLevel || null,
+      duration: course.duration || null,
       instructorId: course.instructorId,
       instructorName: course.instructor.name || course.instructor.email,
       lessons: course.lessons.map((lesson) => ({
@@ -191,6 +205,9 @@ export async function PUT(
       })),
       createdAt: course.createdAt,
     };
+
+    // VAŽNO: Invalidate cache after update so list updates immediately
+    cache.delete("courses:all");
 
     return NextResponse.json(transformedCourse);
   } catch (error) {
@@ -241,6 +258,9 @@ export async function DELETE(
     await prisma.course.delete({
       where: { id },
     });
+
+    // VAŽNO: Invalidate cache after delete so list updates immediately
+    cache.delete("courses:all");
 
     return NextResponse.json({ message: "Kurs je uspješno obrisan" });
   } catch (error) {

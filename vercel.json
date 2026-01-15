@@ -1,0 +1,19 @@
+{
+  "crons": [
+    {
+      "path": "/api/notifications/weekly-summary",
+      "schedule": "0 8 * * 1",
+      "headers": {
+        "x-api-key": "$CRON_API_KEY"
+      }
+    },
+    {
+      "path": "/api/notifications/workshop-reminders",
+      "schedule": "0 * * * *",
+      "headers": {
+        "x-api-key": "$CRON_API_KEY"
+      }
+    }
+  ]
+}
+
