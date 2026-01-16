@@ -1,22 +1,26 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/prisma";
-import { sendWorkshopReminder } from "@/app/lib/email-service";
+import {NextRequest, NextResponse} from "next/server";
+import {prisma} from "@/prisma";
+import {sendWorkshopReminder} from "@/app/lib/email-service";
 
-// F-017: POST slanje podsjetnika za live radionice (može se pozvati iz cron joba)
-export async function POST(request: NextRequest) {
+// F-017: Slanje podsjetnika za live radionice - pozvano iz CRON joba
+export async function GET(request: NextRequest) {
     try {
-        // Provjeri API key za sigurnost (opcionalno)
-        const apiKey = request.headers.get("x-api-key");
-        const expectedKey = process.env.CRON_API_KEY;
+        // 1. Provjera Vercel autorizacije (koristeći CRON_SECRET iz Vercel postavki)
+        const authHeader = request.headers.get("authorization");
+        const expectedAuth = `Bearer ${process.env.CRON_SECRET}`;
 
-        if (expectedKey && apiKey !== expectedKey) {
-            return NextResponse.json(
-                { message: "Neautoriziran pristup" },
-                { status: 401 }
-            );
+        // Ako CRON_SECRET nije postavljen u .env, dozvolit će pristup (za lokalni dev),
+        // ali na produkciji (Vercel) će raditi striktnu provjeru.
+        if (process.env.NODE_ENV === "production" || process.env.CRON_SECRET) {
+            if (authHeader !== expectedAuth) {
+                return NextResponse.json(
+                    { message: "Neautoriziran pristup - Neispravan Cron Secret" },
+                    { status: 401 }
+                );
+            }
         }
 
-        // Pronađi sve radionice koje počinju u sljedećih 24 sata
+        // 2. Pronađi sve radionice koje počinju u sljedećih 24 sata
         const now = new Date();
         const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -37,11 +41,12 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // Pošalji podsjetnik svakom registriranom korisniku
+        // 3. Pošalji podsjetnik svakom registriranom korisniku
         const results = await Promise.allSettled(
             upcomingWorkshops.flatMap((workshop) =>
                 workshop.registrations.map(async (registration) => {
                     const user = registration.user;
+                    // Provjera postojanja emaila i URL-a sastanka
                     if (!user.email || !workshop.meetingUrl) return;
 
                     await sendWorkshopReminder(
@@ -58,18 +63,20 @@ export async function POST(request: NextRequest) {
         const successful = results.filter((r) => r.status === "fulfilled").length;
         const failed = results.filter((r) => r.status === "rejected").length;
 
+        // Vraćamo detaljan report
         return NextResponse.json({
-            message: `Podsjetnici poslani za ${upcomingWorkshops.length} radionica`,
-            workshops: upcomingWorkshops.length,
-            successful,
-            failed,
+            message: `Obrada završena. Podsjetnici poslani za ${upcomingWorkshops.length} radionica.`,
+            workshopsFound: upcomingWorkshops.length,
+            successfulEmails: successful,
+            failedEmails: failed,
+            timestamp: new Date().toISOString()
         });
+
     } catch (error) {
         console.error("Error sending workshop reminders:", error);
         return NextResponse.json(
-            { message: "Greška pri slanju podsjetnika" },
+            { message: "Greška pri slanju podsjetnika", error: String(error) },
             { status: 500 }
         );
     }
 }
-
