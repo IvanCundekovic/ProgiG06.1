@@ -61,6 +61,14 @@ export default function ProfilePage() {
     const [favoriteCuisines, setFavoriteCuisines] = useState<string[]>([]);
     const [dietaryRestrictions, setDietaryRestrictions] = useState<string[]>([]);
     const [notes, setNotes] = useState("");
+    
+    // Instructor profile data
+    const [biography, setBiography] = useState("");
+    const [recipeList, setRecipeList] = useState<string[]>([]);
+    const [availableLessons, setAvailableLessons] = useState<Array<{ id: string; title: string }>>([]);
+    const [verificationDocuments, setVerificationDocuments] = useState<string[]>([]);
+    const [uploadingDocuments, setUploadingDocuments] = useState(false);
+    const [isVerified, setIsVerified] = useState(false);
 
     // Password change
     const [currentPassword, setCurrentPassword] = useState("");
@@ -83,9 +91,11 @@ export default function ProfilePage() {
         const params = new URLSearchParams(window.location.search);
         const force = params.get("forcePasswordChange") === "1";
         if (force || session?.user?.mustChangePassword) {
-            setActiveTab(2);
+            // Adjust tab index based on whether user is instructor
+            const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
+            setActiveTab(isInstructor ? 3 : 2);
         }
-    }, [session?.user?.mustChangePassword]);
+    }, [session?.user?.mustChangePassword, session?.user?.role]);
 
     const loadProfile = async () => {
         try {
@@ -101,6 +111,37 @@ export default function ProfilePage() {
             setFavoriteCuisines(safeParseArray(data.userProfile?.favoriteCuisines));
             setDietaryRestrictions(safeParseArray(data.userProfile?.dietaryRestrictions));
             setNotes(data.userProfile?.notes || "");
+            setIsVerified(data.isVerified || false);
+            
+            // Load instructor profile if user is instructor
+            if (data.role === "INSTRUCTOR" || data.role === "ADMINISTRATOR") {
+                setBiography(data.instructorProfile?.biography || "");
+                setRecipeList(safeParseArray(data.instructorProfile?.recipeList));
+                
+                // Load verification documents
+                if (data.verificationDocuments) {
+                    setVerificationDocuments(safeParseArray(data.verificationDocuments));
+                }
+                
+                // Load available lessons for recipe selection
+                try {
+                    const coursesResponse = await fetch("/api/courses");
+                    if (coursesResponse.ok) {
+                        const courses = await coursesResponse.json();
+                        const allLessons: Array<{ id: string; title: string }> = [];
+                        courses.forEach((course: { lessons?: Array<{ id: string; title: string }> }) => {
+                            if (course.lessons && Array.isArray(course.lessons)) {
+                                course.lessons.forEach((lesson: { id: string; title: string }) => {
+                                    allLessons.push({ id: lesson.id, title: lesson.title });
+                                });
+                            }
+                        });
+                        setAvailableLessons(allLessons);
+                    }
+                } catch (err) {
+                    console.error("Error loading lessons:", err);
+                }
+            }
         } catch (err) {
             console.error("Error loading profile:", err);
             setError(err instanceof Error ? err.message : "Greška pri učitavanju profila");
@@ -124,17 +165,37 @@ export default function ProfilePage() {
             const safeFavoriteCuisines = favoriteCuisines ?? [];
             const safeDietaryRestrictions = dietaryRestrictions ?? [];
 
+            const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
+            const requestBody: {
+                name: string;
+                skillLevel: string | null;
+                allergies: string[] | null;
+                favoriteCuisines: string[] | null;
+                dietaryRestrictions: string[] | null;
+                notes: string | null;
+                biography?: string | null;
+                recipeList?: string[] | null;
+                verificationDocuments?: string[] | null;
+            } = {
+                name,
+                skillLevel: skillLevel || null,
+                allergies: safeAllergies.length > 0 ? safeAllergies : null,
+                favoriteCuisines: safeFavoriteCuisines.length > 0 ? safeFavoriteCuisines : null,
+                dietaryRestrictions: safeDietaryRestrictions.length > 0 ? safeDietaryRestrictions : null,
+                notes: notes || null,
+            };
+            
+            // Add instructor profile fields if user is instructor
+            if (isInstructor) {
+                requestBody.biography = biography || null;
+                requestBody.recipeList = recipeList.length > 0 ? recipeList : null;
+                requestBody.verificationDocuments = verificationDocuments.length > 0 ? verificationDocuments : null;
+            }
+
             const response = await fetch("/api/profile", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name,
-                    skillLevel: skillLevel || null,
-                    allergies: safeAllergies.length > 0 ? safeAllergies : null,
-                    favoriteCuisines: safeFavoriteCuisines.length > 0 ? safeFavoriteCuisines : null,
-                    dietaryRestrictions: safeDietaryRestrictions.length > 0 ? safeDietaryRestrictions : null,
-                    notes: notes || null,
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (!response.ok) throw new Error("Greška pri spremanju profila");
@@ -236,6 +297,11 @@ export default function ProfilePage() {
     const safeAllergies = allergies ?? [];
     const safeFavoriteCuisines = favoriteCuisines ?? [];
     const safeDietaryRestrictions = dietaryRestrictions ?? [];
+    
+    // Calculate tab indices dynamically based on user role
+    const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
+    const passwordChangeTabIndex = isInstructor ? 3 : 2;
+    const gdprTabIndex = isInstructor ? 4 : 3;
 
     return (
         <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
@@ -259,6 +325,9 @@ export default function ProfilePage() {
                 <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
                     <Tab label="Osnovni podaci" />
                     <Tab label="Preferencije" />
+                    {(session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR") && (
+                        <Tab label="Instruktor profil" />
+                    )}
                     <Tab label="Promjena lozinke" />
                     <Tab label="GDPR & Sigurnost" />
                 </Tabs>
@@ -411,7 +480,204 @@ export default function ProfilePage() {
                     </Box>
                 )}
 
-                {activeTab === 2 && (
+                {(session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR") && activeTab === 2 && (
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="h6" gutterBottom>
+                            Biografija
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            multiline
+                            rows={6}
+                            label="Biografija"
+                            value={biography}
+                            onChange={(e) => setBiography(e.target.value)}
+                            placeholder="Napišite nešto o sebi, vašem iskustvu i posebnostima..."
+                            sx={{ mb: 3 }}
+                        />
+
+                        <Divider sx={{ my: 3 }} />
+
+                        <Typography variant="h6" gutterBottom>
+                            Popis recepta
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Odaberite lekcije/recepte koje želite prikazati u svom profilu
+                        </Typography>
+                        <FormControl fullWidth sx={{ mb: 2 }}>
+                            <InputLabel>Dostupni recepti</InputLabel>
+                            <Select<string[]>
+                                multiple
+                                value={recipeList}
+                                onChange={(e: SelectChangeEvent<string[]>) => {
+                                    const value = e.target.value;
+                                    setRecipeList(typeof value === "string" ? value.split(",") : value);
+                                }}
+                                label="Dostupni recepti"
+                                renderValue={(selected) => (
+                                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                                        {selected.map((recipeId) => {
+                                            const lesson = availableLessons.find((l) => l.id === recipeId);
+                                            return <Chip key={recipeId} label={lesson?.title || recipeId} size="small" />;
+                                        })}
+                                    </Box>
+                                )}
+                            >
+                                {availableLessons.map((lesson) => (
+                                    <MenuItem key={lesson.id} value={lesson.id}>
+                                        {lesson.title}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        
+                        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap", gap: 1 }}>
+                            {recipeList.map((recipeId) => {
+                                const lesson = availableLessons.find((l) => l.id === recipeId);
+                                return (
+                                    <Chip
+                                        key={recipeId}
+                                        label={lesson?.title || recipeId}
+                                        onDelete={() => setRecipeList(recipeList.filter((id) => id !== recipeId))}
+                                    />
+                                );
+                            })}
+                        </Stack>
+
+                        <Divider sx={{ my: 3 }} />
+
+                        <Typography variant="h6" gutterBottom>
+                            Verifikacijski dokumenti
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Uploadajte dokumente za verifikaciju (npr. certifikate, diplome, iskaznice). PDF, JPG, PNG formati su podržani.
+                        </Typography>
+                        
+                        {/* Prikaz trenutnih dokumenata */}
+                        {verificationDocuments.length > 0 && (
+                            <Box sx={{ mb: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                    Uploadani dokumenti:
+                                </Typography>
+                                <Stack direction="column" spacing={1}>
+                                    {verificationDocuments.map((doc, index) => (
+                                        <Box
+                                            key={index}
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                p: 1,
+                                                border: "1px solid",
+                                                borderColor: "divider",
+                                                borderRadius: 1,
+                                            }}
+                                        >
+                                            <Typography variant="body2" sx={{ flex: 1, mr: 2 }}>
+                                                Dokument {index + 1}
+                                            </Typography>
+                                            <Button
+                                                size="small"
+                                                href={doc}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                sx={{ mr: 1 }}
+                                            >
+                                                Pregled
+                                            </Button>
+                                            <Button
+                                                size="small"
+                                                color="error"
+                                                onClick={() => {
+                                                    const newDocs = verificationDocuments.filter((_, i) => i !== index);
+                                                    setVerificationDocuments(newDocs);
+                                                }}
+                                            >
+                                                Obriši
+                                            </Button>
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            </Box>
+                        )}
+
+                        {/* File upload */}
+                        <input
+                            accept="application/pdf,image/*"
+                            style={{ display: "none" }}
+                            id="verification-document-upload"
+                            type="file"
+                            multiple
+                            onChange={async (e) => {
+                                const files = e.target.files;
+                                if (!files || files.length === 0) return;
+
+                                setUploadingDocuments(true);
+                                try {
+                                    const newDocs: string[] = [...verificationDocuments];
+
+                                    // Convert files to base64 data URLs
+                                    for (let i = 0; i < files.length; i++) {
+                                        const file = files[i];
+                                        const maxSize = 10 * 1024 * 1024; // 10MB
+                                        if (file.size > maxSize) {
+                                            setError(`Datoteka ${file.name} je prevelika (max 10MB)`);
+                                            continue;
+                                        }
+
+                                        const reader = new FileReader();
+                                        const base64Promise = new Promise<string>((resolve, reject) => {
+                                            reader.onload = () => {
+                                                if (typeof reader.result === "string") {
+                                                    resolve(reader.result);
+                                                } else {
+                                                    reject(new Error("Failed to read file"));
+                                                }
+                                            };
+                                            reader.onerror = reject;
+                                        });
+
+                                        reader.readAsDataURL(file);
+                                        const dataUrl = await base64Promise;
+                                        newDocs.push(dataUrl);
+                                    }
+
+                                    setVerificationDocuments(newDocs);
+                                    setUploadingDocuments(false);
+                                    
+                                    // Reset file input
+                                    e.target.value = "";
+                                } catch (err) {
+                                    console.error("Error uploading documents:", err);
+                                    setError("Greška pri upload-u dokumenata");
+                                    setUploadingDocuments(false);
+                                }
+                            }}
+                        />
+                        <label htmlFor="verification-document-upload">
+                            <Button
+                                variant="outlined"
+                                component="span"
+                                disabled={uploadingDocuments}
+                                sx={{ mb: 2 }}
+                            >
+                                {uploadingDocuments ? <CircularProgress size={24} /> : "Dodaj dokumente"}
+                            </Button>
+                        </label>
+
+                        {isVerified && (
+                            <Alert severity="success" sx={{ mt: 2 }}>
+                                Vaš profil je verificiran.
+                            </Alert>
+                        )}
+
+                        <Button variant="contained" onClick={handleSaveProfile} disabled={saving} sx={{ mt: 2, display: "block" }}>
+                            {saving ? <CircularProgress size={24} /> : "Spremi"}
+                        </Button>
+                    </Box>
+                )}
+
+                {activeTab === passwordChangeTabIndex && (
                     <Box sx={{ mt: 3 }}>
                         <TextField
                             fullWidth
@@ -443,7 +709,7 @@ export default function ProfilePage() {
                     </Box>
                 )}
 
-                {activeTab === 3 && (
+                {activeTab === gdprTabIndex && (
                     <Box sx={{ mt: 3 }}>
                         <Typography variant="h6" gutterBottom>
                             GDPR - Vaša prava
