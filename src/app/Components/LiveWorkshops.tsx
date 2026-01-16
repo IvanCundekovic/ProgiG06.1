@@ -301,7 +301,8 @@ export default function LiveWorkshops() {
         if (workshop.requirements.length) {
             workshop.requirements.forEach(requirement => {
                 if (requirement.type === "completedLesson" && requirement.lessonId) {
-                    markLessonStarted(requirement.lessonId);
+                    // UC-10: markLessonStarted sada traži courseId + lessonId (persist u bazi).
+                    // Ovdje su requirementi demo/placeholder pa ne upisujemo progress.
                 }
             });
         }
@@ -581,7 +582,7 @@ const WorkshopGrid = ({
                 const userRegistration = session?.user?.id
                     ? getUserRegistration(workshop.id, session.user.id)
                     : undefined;
-                const spotsLeft = workshop.capacity - registrations.length;
+                const spotsLeft = workshop.capacity - (workshop.currentParticipants ?? registrations.length);
 
                 return (
                     <Box key={workshop.id}>
@@ -634,7 +635,7 @@ const WorkshopGrid = ({
                                     Kapacitet:
                                 </Typography>
                                 <Typography variant="body2">
-                                    {registrations.length} / {workshop.capacity} polaznika (preostalo {spotsLeft > 0 ? spotsLeft : 0})
+                                    {(workshop.currentParticipants ?? registrations.length)} / {workshop.capacity} polaznika (preostalo {spotsLeft > 0 ? spotsLeft : 0})
                                 </Typography>
                             </Stack>
                             <Stack direction="row" spacing={2} alignItems="center">
@@ -831,7 +832,7 @@ const WorkshopDetailsDrawer = ({
                         Kapacitet:
                     </Typography>
                     <Typography variant="body2">
-                        Kapacitet: {registrations.length} / {workshop.capacity}
+                        Kapacitet: {(workshop.currentParticipants ?? registrations.length)} / {workshop.capacity}
                     </Typography>
                 </Stack>
 

@@ -3,6 +3,7 @@ import { prisma } from "@/prisma";
 import { requireAuth } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
 import { cache } from "@/app/lib/cache";
+import { sendNewLessonNotification } from "@/app/lib/email-service";
 
 // GET /api/lessons/:id - Dohvati lekciju po ID
 export async function GET(
@@ -99,6 +100,11 @@ export async function PUT(
       steps,
       ingredients,
       nutrition,
+      difficultyLevel,
+      duration,
+      cuisine,
+      dietaryTags,
+      allergens,
     } = body;
 
     // Provjeri da li lekcija postoji
@@ -127,6 +133,8 @@ export async function PUT(
       );
     }
 
+    const willPublishNow = published === true && existingLesson.published === false;
+
     const lesson = await prisma.lesson.update({
       where: { id },
       data: {
@@ -135,6 +143,22 @@ export async function PUT(
         ...(content !== undefined && { content: content || null }),
         ...(videoUrl !== undefined && { videoUrl: videoUrl || null }),
         ...(published !== undefined && { published }),
+        ...(difficultyLevel !== undefined && { difficultyLevel: difficultyLevel || null }),
+        ...(duration !== undefined && {
+          duration:
+            typeof duration === "number"
+              ? duration
+              : duration
+                ? Number(duration)
+                : null,
+        }),
+        ...(cuisine !== undefined && { cuisine: cuisine || null }),
+        ...(dietaryTags !== undefined && {
+          dietaryTags: dietaryTags ? JSON.stringify(dietaryTags) : null,
+        }),
+        ...(allergens !== undefined && {
+          allergens: allergens ? JSON.stringify(allergens) : null,
+        }),
         ...(steps !== undefined && {
           steps: steps ? JSON.stringify(steps) : null,
         }),
@@ -168,6 +192,47 @@ export async function PUT(
     // Invalidate cache after update
     cache.delete("courses:all");
 
+    // UC-16/F-017: Ako je lekcija upravo objavljena, pošalji obavijesti korisnicima koji su započeli tečaj
+    if (willPublishNow) {
+      const usersWithProgress = await prisma.progress.findMany({
+        where: {
+          courseId: existingLesson.courseId,
+          isCompleted: false,
+        },
+        include: {
+          user: true,
+        },
+        distinct: ["userId"],
+      });
+
+      const lessonUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/Homepage`;
+
+      Promise.allSettled(
+        usersWithProgress.map(async (p) => {
+          const user = p.user;
+          if (!user.email) return;
+          await prisma.userNotification.create({
+            data: {
+              userId: user.id,
+              type: "NEW_LESSON",
+              title: "Nova lekcija",
+              message: `Nova lekcija "${lesson.title}" dodana je u tečaj "${existingLesson.course.title || "Tečaj"}".`,
+              url: "/Homepage",
+            },
+          });
+          await sendNewLessonNotification(
+            user.email,
+            user.name || user.email.split("@")[0],
+            lesson.title,
+            existingLesson.course.title || "Tečaj",
+            lessonUrl
+          );
+        })
+      ).catch((error) => {
+        console.error("Error sending lesson notifications:", error);
+      });
+    }
+
     // Transformacija za frontend
     const transformedLesson = {
       id: lesson.id,
@@ -177,6 +242,11 @@ export async function PUT(
       videoUrl: lesson.videoUrl || undefined,
       published: lesson.published,
       createdAt: lesson.createdAt,
+      difficultyLevel: lesson.difficultyLevel || null,
+      duration: lesson.duration || null,
+      cuisine: lesson.cuisine || null,
+      dietaryTags: lesson.dietaryTags ? JSON.parse(lesson.dietaryTags) : null,
+      allergens: lesson.allergens ? JSON.parse(lesson.allergens) : null,
       steps: lesson.steps ? JSON.parse(lesson.steps) : undefined,
       ingredients: lesson.ingredients
         ? JSON.parse(lesson.ingredients)

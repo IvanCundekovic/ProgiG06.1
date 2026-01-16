@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth, requireRole } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { cache } from "@/app/lib/cache";
 
 // GET /api/quizzes - Dohvati sve kvizove
 export async function GET(request: NextRequest) {
@@ -127,6 +128,9 @@ export async function POST(request: NextRequest) {
         questions: true,
       },
     });
+
+    // UC-9: invalidate courses cache so lessons reflect quiz immediately
+    cache.delete("courses:all");
 
     // Transformacija za frontend
     const transformedQuiz = {

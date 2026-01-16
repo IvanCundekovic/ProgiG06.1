@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
       scheduledAt: workshop.startTime.toISOString(),
       durationMinutes: workshop.duration,
       capacity: workshop.maxParticipants,
+      currentParticipants: workshop.currentParticipants,
       meetingUrl: workshop.meetingUrl || "",
       requirements: workshop.requirements
         ? (() => {

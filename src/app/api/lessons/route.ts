@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth, requireRole } from "@/app/lib/api-helpers";
 import { Role } from "@prisma/client";
+import { sendNewLessonNotification } from "@/app/lib/email-service";
 
 // GET /api/lessons - Dohvati sve lekcije
 export async function GET(request: NextRequest) {
@@ -160,16 +161,46 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // F-017: Pošalji obavijest o novoj lekciji ako je objavljena
+    // UC-16/F-017: Pošalji obavijest o novoj lekciji ako je objavljena
     if (published) {
-      // Pozovi API endpoint asinkrono (ne blokiramo odgovor)
-      fetch(`${process.env.NEXTAUTH_URL || "http://localhost:3000"}/api/notifications/new-lesson`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lessonId: lesson.id, courseId }),
-      }).catch((error) => {
-        console.error("Error sending lesson notification:", error);
-        // Ne blokiramo ako obavijest ne uspije
+      // Pronađi sve korisnike koji su započeli ovaj tečaj (imaju progress zapis)
+      const usersWithProgress = await prisma.progress.findMany({
+        where: {
+          courseId,
+          isCompleted: false,
+        },
+        include: {
+          user: true,
+        },
+        distinct: ["userId"],
+      });
+
+      const lessonUrl = `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/Homepage`;
+
+      Promise.allSettled(
+        usersWithProgress.map(async (p) => {
+          const user = p.user;
+          if (!user.email) return;
+          // In-app inbox notifikacija
+          await prisma.userNotification.create({
+            data: {
+              userId: user.id,
+              type: "NEW_LESSON",
+              title: "Nova lekcija",
+              message: `Nova lekcija "${lesson.title}" dodana je u tečaj "${lesson.course.title}".`,
+              url: "/Homepage",
+            },
+          });
+          await sendNewLessonNotification(
+            user.email,
+            user.name || user.email.split("@")[0],
+            lesson.title,
+            lesson.course.title,
+            lessonUrl
+          );
+        })
+      ).catch((error) => {
+        console.error("Error sending lesson notifications:", error);
       });
     }
 
