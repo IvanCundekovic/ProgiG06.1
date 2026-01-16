@@ -8,6 +8,18 @@ export async function loginWithProvider(provider: "google" | "github") {
     await signIn(provider, { redirectTo: "/Homepage" });
 }
 
+export async function loginWithCredentials(formData: any) {
+    try {
+        await signIn("credentials", {
+            identifier: formData.identifier,
+            password: formData.password,
+            redirectTo: "/Homepage",
+        });
+    } catch (error) {
+        throw error; // Pustit ćemo da se error obradi u komponenti
+    }
+}
+
 export async function hashPassword(password: string): Promise<string> {
     const salt = await bcrypt.genSalt(10);
     return bcrypt.hash(password, salt);

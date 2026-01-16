@@ -39,19 +39,12 @@ export default function LoginPage() {
 
         try {
             if (isLoginMode) {
-                const result = await signIn('credentials', {
+                await signIn('credentials', {
                     identifier,
                     password,
-                    redirect: false,
+                    redirect: true,
+                    callbackUrl: "/Homepage",
                 });
-
-                if (result?.error) {
-                    setError("Prijava neuspješna: Provjerite e-mail i lozinku.");
-                } else if (result?.ok) {
-                    router.refresh();
-                    router.push("/Homepage");
-                }
-
             } else {
                 if (password !== repeatPassword) {
                     setError("Lozinka i ponovljena lozinka se ne podudaraju.");

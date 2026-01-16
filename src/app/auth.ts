@@ -62,19 +62,25 @@ export const authOptions: NextAuthConfig = {
         }),
     ],
     session: {
-        strategy: "database",
+        strategy: "jwt",
         maxAge: 30 * 24 * 60 * 60, // 30 dana
     },
     callbacks: {
-        async session({session, user}) {
+        async jwt({ token, user }) {
             if (user) {
-                const extendedUser = user as ExtendedUser;
-
-                (session.user as ExtendedUser).id = extendedUser.id;
-                (session.user as ExtendedUser).role = extendedUser.role;
+                token.id = user.id;
+                // @ts-ignore
+                token.role = user.role;
+            }
+            return token;
+        },
+        async session({ session, token }) {
+            if (token && session.user) {
+                (session.user as ExtendedUser).id = token.id as string;
+                (session.user as ExtendedUser).role = token.role as Role;
             }
             return session;
-        }
+        },
     },
     events: {
         async createUser(message) {
