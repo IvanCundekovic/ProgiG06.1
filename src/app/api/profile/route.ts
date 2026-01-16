@@ -30,6 +30,7 @@ export async function GET() {
             image: user.image,
             mustChangePassword: user.mustChangePassword,
             isVerified: user.isVerified,
+            verificationDocuments: user.verificationDocuments,
             userProfile: user.userProfile,
             instructorProfile: user.instructorProfile,
         });
@@ -56,6 +57,9 @@ export async function PUT(request: NextRequest) {
             favoriteCuisines,
             dietaryRestrictions,
             notes,
+            biography,
+            recipeList,
+            verificationDocuments,
         } = body;
 
         // Ažuriraj osnovne podatke korisnika
@@ -94,6 +98,59 @@ export async function PUT(request: NextRequest) {
                     ...profileData,
                 },
             });
+        }
+
+        // Ažuriraj ili kreiraj instructorProfile ako su polja dostupna
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { role: true },
+        });
+
+        if (user && (user.role === "INSTRUCTOR" || user.role === "ADMINISTRATOR")) {
+            const instructorProfileData: {
+                biography?: string | null;
+                recipeList?: string | null;
+            } = {};
+            
+            if (biography !== undefined) instructorProfileData.biography = biography;
+            if (recipeList !== undefined) {
+                instructorProfileData.recipeList = recipeList && Array.isArray(recipeList) && recipeList.length > 0
+                    ? JSON.stringify(recipeList)
+                    : null;
+            }
+
+            if (Object.keys(instructorProfileData).length > 0) {
+                await prisma.instructorProfile.upsert({
+                    where: { userId },
+                    update: instructorProfileData,
+                    create: {
+                        userId,
+                        ...instructorProfileData,
+                    },
+                });
+            }
+
+            // Ažuriraj verificationDocuments na User modelu (UC 6)
+            if (verificationDocuments !== undefined) {
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: {
+                        verificationDocuments: verificationDocuments && Array.isArray(verificationDocuments) && verificationDocuments.length > 0
+                            ? JSON.stringify(verificationDocuments)
+                            : null,
+                        // Resetiraj verifikaciju kada se dokumenti ažuriraju
+                        isVerified: verificationDocuments && Array.isArray(verificationDocuments) && verificationDocuments.length > 0
+                            ? false
+                            : undefined,
+                        verifiedAt: verificationDocuments && Array.isArray(verificationDocuments) && verificationDocuments.length > 0
+                            ? null
+                            : undefined,
+                        verifiedBy: verificationDocuments && Array.isArray(verificationDocuments) && verificationDocuments.length > 0
+                            ? null
+                            : undefined,
+                    },
+                });
+            }
         }
 
         return NextResponse.json({ message: "Profil uspješno ažuriran" });
