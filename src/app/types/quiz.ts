@@ -50,6 +50,9 @@ export type Course = {
     id: string;
     title: string;
     description: string;
+    // UC-7: Polja tečaja
+    difficultyLevel?: string | null;
+    duration?: number | null;
     instructorId: string;
     instructorName: string;
     lessons: Lesson[];
@@ -132,6 +135,7 @@ export type LiveWorkshop = {
     scheduledAt: string;
     durationMinutes: number;
     capacity: number;
+    currentParticipants: number;
     requirements: WorkshopRequirement[];
     meetingUrl: string;
     calendarSyncedAt?: string;

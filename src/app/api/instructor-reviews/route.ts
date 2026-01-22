@@ -6,7 +6,8 @@ import { requireAuth } from "@/app/lib/api-helpers";
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const instructorId = searchParams.get("instructorId");
+        // NOTE: instructorId param je userId instruktora (ne instructorProfile.id)
+        const instructorUserId = searchParams.get("instructorId");
         const userId = searchParams.get("userId");
 
         const where: {
@@ -14,7 +15,13 @@ export async function GET(request: NextRequest) {
             userId?: string;
         } = {};
 
-        if (instructorId) where.instructorId = instructorId;
+        if (instructorUserId) {
+            const profile = await prisma.instructorProfile.findUnique({
+                where: { userId: instructorUserId },
+                select: { id: true },
+            });
+            if (profile) where.instructorId = profile.id;
+        }
         if (userId) where.userId = userId;
 
         const reviews = await prisma.instructorReview.findMany({
@@ -67,9 +74,26 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Provjeri da li instruktor postoji
-        const instructorProfile = await prisma.instructorProfile.findUnique({
+        // Provjeri da li instruktor postoji (instructorId = userId instruktora)
+        const instructorUser = await prisma.user.findUnique({
+            where: { id: instructorId },
+            select: { id: true, name: true, role: true },
+        });
+
+        if (!instructorUser || instructorUser.role !== "INSTRUCTOR") {
+            return NextResponse.json(
+                { message: "Instruktor nije pronađen" },
+                { status: 404 }
+            );
+        }
+
+        // Osiguraj da postoji InstructorProfile (fallback za starije podatke)
+        const instructorProfile = await prisma.instructorProfile.upsert({
             where: { userId: instructorId },
+            update: {},
+            create: {
+                userId: instructorId,
+            },
             include: {
                 user: {
                     select: {
@@ -79,13 +103,6 @@ export async function POST(request: NextRequest) {
                 },
             },
         });
-
-        if (!instructorProfile) {
-            return NextResponse.json(
-                { message: "Instruktor nije pronađen" },
-                { status: 404 }
-            );
-        }
 
         // Provjeri da li korisnik već ocjenio ovog instruktora
         const existingReview = await prisma.instructorReview.findUnique({

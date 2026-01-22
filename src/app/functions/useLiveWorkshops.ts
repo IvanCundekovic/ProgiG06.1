@@ -43,9 +43,7 @@ export function useLiveWorkshops() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Učitaj radionice i registracije
-    useEffect(() => {
-        const loadData = async () => {
+    const loadData = useCallback(async () => {
             try {
                 setLoading(true);
                 setError(null);
@@ -83,10 +81,21 @@ export function useLiveWorkshops() {
             } finally {
                 setLoading(false);
             }
-        };
+        }, []);
 
-        loadData();
-    }, []);
+    // Učitaj radionice i registracije (inicijalno)
+    useEffect(() => {
+        void loadData();
+    }, [loadData]);
+
+    // UC-11: Polling da se kapacitet ažurira svim korisnicima
+    useEffect(() => {
+        const interval = setInterval(() => {
+            void loadData();
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, [loadData]);
 
     const createWorkshop = useCallback(
         async ({
@@ -246,13 +255,15 @@ export function useLiveWorkshops() {
 
                 const newRegistration = await response.json();
                 setRegistrations(prev => [...prev, newRegistration]);
+                // Osvježi radionice da se kapacitet odmah ažurira
+                await loadData();
                 return newRegistration;
             } catch (err) {
                 console.error("Error registering for workshop:", err);
                 throw err;
             }
         },
-        []
+        [loadData]
     );
 
     const syncCalendar = useCallback(

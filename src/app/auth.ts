@@ -13,6 +13,7 @@ interface ExtendedUser extends User {
     id: string;
     email: string;
     role: Role;
+    mustChangePassword?: boolean;
 }
 
 export const authOptions: NextAuthConfig = {
@@ -39,6 +40,18 @@ export const authOptions: NextAuthConfig = {
                 const isValid = await verifyPassword(password, user.passwordHash);
 
                 if (isValid) {
+                    // UC-5: Prva prijava -> korisnik mora promijeniti lozinku
+                    if (!user.firstLoginAt) {
+                        await prisma.user.update({
+                            where: { id: user.id },
+                            data: {
+                                mustChangePassword: true,
+                                firstLoginAt: new Date(),
+                            },
+                        });
+                        user.mustChangePassword = true;
+                    }
+
                     return {
                         id: user.id,
                         email: user.email,
@@ -46,6 +59,7 @@ export const authOptions: NextAuthConfig = {
                         role: user.role,
                         image: user.image,
                         emailVerified: user.emailVerified,
+                        mustChangePassword: user.mustChangePassword ?? false,
                     };
                 }
 

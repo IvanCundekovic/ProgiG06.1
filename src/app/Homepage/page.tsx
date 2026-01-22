@@ -1,5 +1,5 @@
 "use client"
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {
     AppBar,
     Box,
@@ -38,6 +38,13 @@ export default function Homepage() {
 
     const isAuthenticated = status === "authenticated";
     const isLoading = status === "loading";
+
+    // UC-5: ako je prva prijava, prisili promjenu lozinke
+    useEffect(() => {
+        if (status === "authenticated" && session?.user?.mustChangePassword) {
+            router.push("/profile?forcePasswordChange=1");
+        }
+    }, [status, session?.user?.mustChangePassword, router]);
 
     const username = session?.user?.name || session?.user?.email;
 

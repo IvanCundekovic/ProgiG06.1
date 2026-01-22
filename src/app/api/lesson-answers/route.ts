@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth } from "@/app/lib/api-helpers";
+import { Role } from "@prisma/client";
 
 // GET /api/lesson-answers - Dohvati sve odgovore
 export async function GET(request: NextRequest) {
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
 // POST /api/lesson-answers - Odgovori na pitanje
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await requireAuth();
+    const { userId, userRole } = await requireAuth();
 
     const body = await request.json();
     const { questionId, message } = body;
@@ -67,12 +68,42 @@ export async function POST(request: NextRequest) {
     // Provjeri da li pitanje postoji
     const question = await prisma.lessonQuestion.findUnique({
       where: { id: questionId },
+      include: {
+        lesson: {
+          select: {
+            id: true,
+            course: {
+              select: {
+                id: true,
+                instructorId: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!question) {
       return NextResponse.json(
         { message: "Pitanje nije pronađeno" },
         { status: 404 }
+      );
+    }
+
+    // UC-10: Samo instruktor tečaja (ili admin) može odgovarati na Q&A
+    const courseInstructorId = question.lesson?.course.instructorId;
+    if (!courseInstructorId) {
+      return NextResponse.json({ message: "Tečaj nije pronađen" }, { status: 404 });
+    }
+
+    const canAnswer =
+      userRole === Role.ADMINISTRATOR ||
+      (userRole === Role.INSTRUCTOR && courseInstructorId === userId);
+
+    if (!canAnswer) {
+      return NextResponse.json(
+        { message: "Samo instruktor tečaja može odgovarati na pitanja" },
+        { status: 403 }
       );
     }
 

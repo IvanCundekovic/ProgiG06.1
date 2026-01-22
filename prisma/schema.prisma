@@ -41,8 +41,27 @@ model User {
   instructorProfile      InstructorProfile?
   progress               Progress[]
   certificates           Certificate[]
+  notifications          UserNotification[]
 
   @@map("users")
+}
+
+// UC-16: In-app inbox notifikacije korisnika
+model UserNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String?
+  message   String
+  url       String?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([readAt])
+  @@map("user_notifications")
 }
 
 model Account {
@@ -142,6 +161,9 @@ model Course {
   id           String   @id @default(cuid())
   title        String
   description  String?
+  // UC-7: Polja tečaja
+  difficultyLevel String? // Razina težine tečaja (npr. beginner/intermediate/advanced)
+  duration     Int?     // Trajanje tečaja u minutama
   instructorId String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

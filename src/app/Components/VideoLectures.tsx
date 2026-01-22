@@ -23,6 +23,7 @@ import {
     IconButton,
     InputAdornment,
     InputLabel,
+    LinearProgress,
     MenuItem,
     Paper,
     Rating,
@@ -36,10 +37,20 @@ import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from "@mui/icons-material/Edit";
 import type {Course, Lesson} from "@/app/types/quiz";
 import {useLessonFeedback} from "@/app/functions/useLessonFeedback";
 import {useSession} from "next-auth/react";
 import InstructorReviewDialog from "./InstructorReviewDialog";
+
+type CourseProgressSummary = {
+    courseId: string;
+    courseTitle: string;
+    totalLessons: number;
+    completedLessons: number;
+    percentage: number;
+    certificate: { id: string; courseId: string; courseTitle: string; pdfUrl?: string | null; issuedAt: string | Date } | null;
+};
 
 // Fallback mock courses ako API ne vrati podatke
 const mockCourses: Course[] = [
@@ -443,6 +454,8 @@ export default function VideoLectures() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [progressSummary, setProgressSummary] = useState<CourseProgressSummary[]>([]);
+    const [progressLoading, setProgressLoading] = useState(false);
 
     // F-015: Pretraga i filtriranje
     const [searchQuery, setSearchQuery] = useState("");
@@ -462,6 +475,8 @@ export default function VideoLectures() {
     const [instructorReviewOpen, setInstructorReviewOpen] = useState(false);
     const [selectedInstructorId, setSelectedInstructorId] = useState<string>("");
     const [selectedInstructorName, setSelectedInstructorName] = useState<string>("");
+    const [instructorAverageRating, setInstructorAverageRating] = useState<number | null>(null);
+    const [instructorReviewCount, setInstructorReviewCount] = useState<number>(0);
 
     const loadCourses = useCallback(async () => {
         try {
@@ -489,13 +504,44 @@ export default function VideoLectures() {
         }
     }, []);
 
+    const loadProgressSummary = useCallback(async () => {
+        if (!session?.user?.id) {
+            setProgressSummary([]);
+            return;
+        }
+        try {
+            setProgressLoading(true);
+            const res = await fetch("/api/progress?summary=true");
+            if (!res.ok) {
+                // Ako progress endpoint nije dostupan, samo preskoči UI
+                setProgressSummary([]);
+                return;
+            }
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setProgressSummary(data);
+            } else {
+                setProgressSummary([]);
+            }
+        } catch {
+            setProgressSummary([]);
+        } finally {
+            setProgressLoading(false);
+        }
+    }, [session?.user?.id]);
+
     useEffect(() => {
         void loadCourses();
     }, [loadCourses]);
 
+    useEffect(() => {
+        void loadProgressSummary();
+    }, [loadProgressSummary]);
+
     // Refresh funkcija
     const handleRefresh = () => {
         void loadCourses();
+        void loadProgressSummary();
     };
 
     // Delete funkcija
@@ -564,6 +610,8 @@ export default function VideoLectures() {
         return [];
     };
 
+    const normalize = (value: string) => value.trim().toLowerCase();
+
     // F-015: Filtriranje lekcija
     const filteredLessons = useMemo(() => {
         return allLessons.filter(({lesson, course}) => {
@@ -585,23 +633,27 @@ export default function VideoLectures() {
             }
             
             // Filtriranje po kuhinji
-            if (selectedCuisine && lesson.cuisine !== selectedCuisine) {
-                return false;
+            if (selectedCuisine) {
+                const lessonCuisine = lesson.cuisine ? normalize(lesson.cuisine) : "";
+                if (!lessonCuisine || lessonCuisine !== normalize(selectedCuisine)) return false;
             }
 
-            if (selectedCuisine && lesson.cuisine !== selectedCuisine) return false;
-            if (selectedDifficulty && lesson.difficultyLevel !== selectedDifficulty) return false;
+            if (selectedDifficulty) {
+                const lessonDifficulty = lesson.difficultyLevel ? normalize(lesson.difficultyLevel) : "";
+                if (!lessonDifficulty || lessonDifficulty !== normalize(selectedDifficulty)) return false;
+            }
 
             if (selectedDietaryTag) {
-                const dietaryTags = safeParseArray(lesson.dietaryTags);
-                if (!dietaryTags.includes(selectedDietaryTag)) {
+                const dietaryTags = safeParseArray<string>(lesson.dietaryTags).map(normalize);
+                if (!dietaryTags.includes(normalize(selectedDietaryTag))) {
                     return false;
                 }
             }
 
             if (selectedAllergen) {
-                const allergens = safeParseArray(lesson.allergens);
-                if (allergens.includes(selectedAllergen)) {
+                const allergens = safeParseArray<string>(lesson.allergens).map(normalize);
+                // "Isključi alergen" => sakrij lekcije koje sadrže odabrani alergen
+                if (allergens.includes(normalize(selectedAllergen))) {
                     return false;
                 }
             }
@@ -612,7 +664,7 @@ export default function VideoLectures() {
             }
 
             // Zadnji uvjet vraćamo direktno kao boolean
-            return !(maxDuration !== null && lesson.duration && lesson.duration > maxDuration);
+            return !(maxDuration !== null && lesson.duration !== null && lesson.duration !== undefined && lesson.duration > maxDuration);
         });
     }, [allLessons, searchQuery, selectedCuisine, selectedDifficulty, selectedDietaryTag, selectedAllergen, minRating, maxDuration, getAverageRating]);
 
@@ -620,7 +672,7 @@ export default function VideoLectures() {
     const availableCuisines = useMemo(() => {
         const cuisines = new Set<string>();
         allLessons.forEach(({lesson}) => {
-            if (lesson.cuisine) cuisines.add(lesson.cuisine);
+            if (lesson.cuisine && lesson.cuisine.trim()) cuisines.add(lesson.cuisine.trim());
         });
         return Array.from(cuisines).sort();
     }, [allLessons]);
@@ -628,7 +680,7 @@ export default function VideoLectures() {
     const availableDifficulties = useMemo(() => {
         const difficulties = new Set<string>();
         allLessons.forEach(({lesson}) => {
-            if (lesson.difficultyLevel) difficulties.add(lesson.difficultyLevel);
+            if (lesson.difficultyLevel && lesson.difficultyLevel.trim()) difficulties.add(lesson.difficultyLevel.trim());
         });
         return Array.from(difficulties).sort();
     }, [allLessons]);
@@ -636,9 +688,9 @@ export default function VideoLectures() {
     const availableDietaryTags = useMemo(() => {
         const tags = new Set<string>();
         allLessons.forEach(({lesson}) => {
-            const dietaryTags = safeParseArray(lesson.dietaryTags);
+            const dietaryTags = safeParseArray<string>(lesson.dietaryTags);
             dietaryTags.forEach((tag: string) => {
-                if (tag) tags.add(tag);
+                if (tag && tag.trim()) tags.add(tag.trim());
             });
         });
         return Array.from(tags).sort();
@@ -647,9 +699,9 @@ export default function VideoLectures() {
     const availableAllergens = useMemo(() => {
         const allergens = new Set<string>();
         allLessons.forEach(({lesson}) => {
-            const lessonAllergens = safeParseArray(lesson.allergens);
+            const lessonAllergens = safeParseArray<string>(lesson.allergens);
             lessonAllergens.forEach((allergen: string) => {
-                if (allergen) allergens.add(allergen);
+                if (allergen && allergen.trim()) allergens.add(allergen.trim());
             });
         });
         return Array.from(allergens).sort();
@@ -672,6 +724,14 @@ export default function VideoLectures() {
     const selectedCourseId = selectedLesson?.course.id;
     const selectedLessonId = selectedLesson?.lesson.id;
     const isInstructor = session?.user?.role === "INSTRUCTOR" || session?.user?.role === "ADMINISTRATOR";
+    const isAdmin = session?.user?.role === "ADMINISTRATOR";
+
+    const manageableCourses = useMemo(() => {
+        if (isAdmin) return courses;
+        const myId = session?.user?.id;
+        if (!myId) return [];
+        return courses.filter((c) => c.instructorId === myId);
+    }, [courses, isAdmin, session?.user?.id]);
 
     const lessonReviews = useMemo(
         () =>
@@ -705,6 +765,37 @@ export default function VideoLectures() {
         [getReviewCount, selectedCourseId, selectedLessonId]
     );
 
+    // UC-10: Rating instruktora (prosjek) - dohvat iz /api/instructor-reviews
+    useEffect(() => {
+        const instructorId = selectedLesson?.course.instructorId;
+        if (!instructorId) {
+            setInstructorAverageRating(null);
+            setInstructorReviewCount(0);
+            return;
+        }
+
+        (async () => {
+            try {
+                const res = await fetch(`/api/instructor-reviews?instructorId=${encodeURIComponent(instructorId)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    setInstructorAverageRating(null);
+                    setInstructorReviewCount(0);
+                    return;
+                }
+                const ratings = data
+                    .map((r: { rating?: number }) => r.rating)
+                    .filter((n: unknown) => typeof n === "number") as number[];
+                const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
+                setInstructorAverageRating(avg);
+                setInstructorReviewCount(ratings.length);
+            } catch {
+                // ignore
+            }
+        })();
+    }, [selectedLesson?.course.instructorId]);
+
     const userReview = useMemo(
         () =>
             selectedCourseId && selectedLessonId && session?.user?.id
@@ -713,7 +804,7 @@ export default function VideoLectures() {
         [session?.user?.id, getUserReview, selectedCourseId, selectedLessonId]
     );
 
-    const lessonStarted = selectedLessonId ? hasStartedLesson(selectedLessonId) : false;
+    const lessonStarted = selectedCourseId && selectedLessonId ? hasStartedLesson(selectedCourseId, selectedLessonId) : false;
 
     const selectedIngredients = selectedLesson?.lesson.ingredients ?? [];
     const selectedNutrition = selectedLesson?.lesson.nutrition ?? [];
@@ -882,6 +973,27 @@ export default function VideoLectures() {
     const [open, setOpen] = useState(false);
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
+    const [courseDifficultyLevel, setCourseDifficultyLevel] = useState<string>("");
+    const [courseDuration, setCourseDuration] = useState<string>(""); // minutes (string for input)
+
+    const [editCourseOpen, setEditCourseOpen] = useState(false);
+    const [courseToEdit, setCourseToEdit] = useState<Course | null>(null);
+
+    const openEditCourseDialog = (course: Course) => {
+        setCourseToEdit(course);
+        setTitle(course.title);
+        setDescription(course.description || "");
+        setCourseDifficultyLevel(course.difficultyLevel || "");
+        setCourseDuration(course.duration !== null && course.duration !== undefined ? String(course.duration) : "");
+        setEditCourseOpen(true);
+    };
+
+    const resetCourseForm = () => {
+        setTitle("");
+        setDescription("");
+        setCourseDifficultyLevel("");
+        setCourseDuration("");
+    };
 
     const handleCreateCourse = async () => {
         if (!title.trim()) {
@@ -898,7 +1010,8 @@ export default function VideoLectures() {
                 body: JSON.stringify({
                     title,
                     description,
-
+                    difficultyLevel: courseDifficultyLevel || null,
+                    duration: courseDuration ? Number(courseDuration) : null,
                 }),
             });
             const data = await res.json();
@@ -907,8 +1020,7 @@ export default function VideoLectures() {
                 alert(data.message || "Greška pri stvaranju tečaja");
             }
             //reset sve
-            setTitle("");
-            setDescription("");
+            resetCourseForm();
             setOpen(false);
             //loadaj sve opet
             void loadCourses();
@@ -921,6 +1033,46 @@ export default function VideoLectures() {
             }
         }
     }
+
+    const handleUpdateCourse = async () => {
+        if (!courseToEdit) return;
+        if (!title.trim()) {
+            alert("Naziv tečaja je obavezan");
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/courses/${courseToEdit.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    title,
+                    description,
+                    difficultyLevel: courseDifficultyLevel || null,
+                    duration: courseDuration ? Number(courseDuration) : null,
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || "Greška pri ažuriranju tečaja");
+                return;
+            }
+
+            setEditCourseOpen(false);
+            setCourseToEdit(null);
+            resetCourseForm();
+            void loadCourses();
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                alert(err.message);
+            } else {
+                alert("Dogodila se nepoznata pogreška");
+            }
+        }
+    };
 
     type Ingredient = {
         name: string;
@@ -942,6 +1094,50 @@ export default function VideoLectures() {
     const [lessonSteps, setLessonSteps] = useState<string[]>([""]);
     const [lessonIngredients, setLessonIngredients] = useState<Ingredient[]>([{name: "", amount: ""}]);
     const [lessonNutrition, setLessonNutrition] = useState<Nutrition[]>([{label: "", value: ""}]);
+    const [lessonDifficultyLevel, setLessonDifficultyLevel] = useState<string>("");
+    const [lessonDuration, setLessonDuration] = useState<string>("");
+    const [lessonCuisine, setLessonCuisine] = useState<string>("");
+    const [lessonDietaryTags, setLessonDietaryTags] = useState<string>(""); // comma-separated
+    const [lessonAllergens, setLessonAllergens] = useState<string>(""); // comma-separated
+
+    const [openLessonEdit, setOpenLessonEdit] = useState(false);
+    const [lessonToEdit, setLessonToEdit] = useState<LessonWithCourse | null>(null);
+
+    const resetLessonForm = () => {
+        setLessonCreateTitle("");
+        setLessonCreateDescription("");
+        setLessonContent("");
+        setCourseId("");
+        setLessonVideoUrl("");
+        setLessonPublished(false);
+        setLessonSteps([""]);
+        setLessonIngredients([{name: "", amount: ""}]);
+        setLessonNutrition([{label: "", value: ""}]);
+        setLessonDifficultyLevel("");
+        setLessonDuration("");
+        setLessonCuisine("");
+        setLessonDietaryTags("");
+        setLessonAllergens("");
+    };
+
+    const openEditLessonDialog = (item: LessonWithCourse) => {
+        setLessonToEdit(item);
+        setLessonCreateTitle(item.lesson.title);
+        setLessonCreateDescription(item.lesson.description || "");
+        setLessonContent(item.lesson.content || "");
+        setCourseId(item.course.id);
+        setLessonVideoUrl(item.lesson.videoUrl || "");
+        setLessonPublished(!!item.lesson.published);
+        setLessonSteps(item.lesson.steps && item.lesson.steps.length > 0 ? item.lesson.steps : [""]);
+        setLessonIngredients(item.lesson.ingredients && item.lesson.ingredients.length > 0 ? item.lesson.ingredients : [{name: "", amount: ""}]);
+        setLessonNutrition(item.lesson.nutrition && item.lesson.nutrition.length > 0 ? item.lesson.nutrition : [{label: "", value: ""}]);
+        setLessonDifficultyLevel(item.lesson.difficultyLevel || "");
+        setLessonDuration(item.lesson.duration !== null && item.lesson.duration !== undefined ? String(item.lesson.duration) : "");
+        setLessonCuisine(item.lesson.cuisine || "");
+        setLessonDietaryTags(Array.isArray(item.lesson.dietaryTags) ? item.lesson.dietaryTags.join(", ") : "");
+        setLessonAllergens(Array.isArray(item.lesson.allergens) ? item.lesson.allergens.join(", ") : "");
+        setOpenLessonEdit(true);
+    };
 
     const handleCreateLesson = async () => {
         if (!lessonCreateTitle.trim() || !courseId) {
@@ -958,9 +1154,19 @@ export default function VideoLectures() {
                 body: JSON.stringify({
                     title: lessonCreateTitle,
                     description: lessonCreateDescription,
+                    content: lessonContent,
                     courseId: courseId,
                     videoUrl: lessonVideoUrl,
                     published: lessonPublished,
+                    difficultyLevel: lessonDifficultyLevel || null,
+                    duration: lessonDuration ? Number(lessonDuration) : null,
+                    cuisine: lessonCuisine || null,
+                    dietaryTags: lessonDietaryTags
+                        ? lessonDietaryTags.split(",").map((t) => t.trim()).filter(Boolean)
+                        : null,
+                    allergens: lessonAllergens
+                        ? lessonAllergens.split(",").map((t) => t.trim()).filter(Boolean)
+                        : null,
                     steps: lessonSteps,
                     ingredients: lessonIngredients,
                     nutrition: lessonNutrition
@@ -972,15 +1178,7 @@ export default function VideoLectures() {
             }
 
             //reset sve
-            setLessonCreateTitle("");
-            setLessonCreateDescription("");
-            setLessonContent("");
-            setCourseId("")
-            setLessonVideoUrl("");
-            setLessonPublished(false);
-            setLessonSteps([""]);
-            setLessonIngredients([{name: "", amount: ""}]);
-            setLessonNutrition([{label: "", value: ""}]);
+            resetLessonForm();
             setOpenLessonCreate(false);
             //loadaj sve opet
             void loadCourses()
@@ -993,6 +1191,57 @@ export default function VideoLectures() {
             }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateLesson = async () => {
+        if (!lessonToEdit) return;
+        if (!lessonCreateTitle.trim() || !courseId) {
+            alert("Naziv lekcije i tečaj su obavezni");
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/lessons/${lessonToEdit.lesson.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: lessonCreateTitle,
+                    description: lessonCreateDescription,
+                    content: lessonContent,
+                    videoUrl: lessonVideoUrl,
+                    published: lessonPublished,
+                    difficultyLevel: lessonDifficultyLevel || null,
+                    duration: lessonDuration ? Number(lessonDuration) : null,
+                    cuisine: lessonCuisine || null,
+                    dietaryTags: lessonDietaryTags
+                        ? lessonDietaryTags.split(",").map((t) => t.trim()).filter(Boolean)
+                        : null,
+                    allergens: lessonAllergens
+                        ? lessonAllergens.split(",").map((t) => t.trim()).filter(Boolean)
+                        : null,
+                    steps: lessonSteps,
+                    ingredients: lessonIngredients,
+                    nutrition: lessonNutrition,
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || "Greška pri ažuriranju lekcije");
+                return;
+            }
+
+            setOpenLessonEdit(false);
+            setLessonToEdit(null);
+            resetLessonForm();
+            void loadCourses();
+        } catch (err: unknown) {
+            if (err instanceof Error) {
+                alert(err.message);
+            } else {
+                alert("Dogodila se nepoznata pogreška");
+            }
         }
     };
 
@@ -1071,11 +1320,32 @@ export default function VideoLectures() {
                             multiline
                             rows={3}
                         />
+                        <FormControl>
+                            <InputLabel id="course-difficulty-label">Razina težine</InputLabel>
+                            <Select
+                                labelId="course-difficulty-label"
+                                value={courseDifficultyLevel}
+                                label="Razina težine"
+                                onChange={(e) => setCourseDifficultyLevel(e.target.value)}
+                            >
+                                <MenuItem value=""><em>Bez</em></MenuItem>
+                                <MenuItem value="BEGINNER">Početni</MenuItem>
+                                <MenuItem value="INTERMEDIATE">Srednji</MenuItem>
+                                <MenuItem value="ADVANCED">Napredni</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField
+                            label="Trajanje (minute)"
+                            value={courseDuration}
+                            onChange={(e) => setCourseDuration(e.target.value.replace(/[^\d]/g, ""))}
+                            inputMode="numeric"
+                            placeholder="npr. 120"
+                        />
 
                     </Stack>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button onClick={() => { setOpen(false); resetCourseForm(); }}>Cancel</Button>
                     <Button
                         onClick={handleCreateCourse}
                         variant="contained"
@@ -1091,7 +1361,7 @@ export default function VideoLectures() {
                     Nova lekcija
                 </Button>
             )}
-            <Dialog open={openLessonCreate} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+            <Dialog open={openLessonCreate} onClose={() => setOpenLessonCreate(false)} fullWidth maxWidth="sm">
                 <DialogTitle>Kreiraj novu lekciju</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} mt={1}>
@@ -1124,7 +1394,7 @@ export default function VideoLectures() {
                                 label="Course"
                                 onChange={(e) => setCourseId(e.target.value)}
                             >
-                                {courses.map((course) => (
+                                {(isAdmin ? courses : manageableCourses).map((course) => (
                                     <MenuItem key={course.id} value={course.id}>
                                         {course.title}
                                     </MenuItem>
@@ -1137,6 +1407,46 @@ export default function VideoLectures() {
                             value={lessonVideoUrl}
                             onChange={(e) => setLessonVideoUrl(e.target.value)}
                             required
+                        />
+
+                        <FormControl>
+                            <InputLabel id="lesson-difficulty-label">Težina</InputLabel>
+                            <Select
+                                labelId="lesson-difficulty-label"
+                                value={lessonDifficultyLevel}
+                                label="Težina"
+                                onChange={(e) => setLessonDifficultyLevel(e.target.value)}
+                            >
+                                <MenuItem value=""><em>Bez</em></MenuItem>
+                                <MenuItem value="BEGINNER">Početni</MenuItem>
+                                <MenuItem value="INTERMEDIATE">Srednji</MenuItem>
+                                <MenuItem value="ADVANCED">Napredni</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField
+                            label="Trajanje (minute)"
+                            value={lessonDuration}
+                            onChange={(e) => setLessonDuration(e.target.value.replace(/[^\d]/g, ""))}
+                            inputMode="numeric"
+                            placeholder="npr. 30"
+                        />
+                        <TextField
+                            label="Kuhinja"
+                            value={lessonCuisine}
+                            onChange={(e) => setLessonCuisine(e.target.value)}
+                            placeholder="npr. Mediteranska"
+                        />
+                        <TextField
+                            label="Prehrambene oznake (zarezom odvojeno)"
+                            value={lessonDietaryTags}
+                            onChange={(e) => setLessonDietaryTags(e.target.value)}
+                            placeholder="npr. vegan, keto"
+                        />
+                        <TextField
+                            label="Alergeni (zarezom odvojeno)"
+                            value={lessonAllergens}
+                            onChange={(e) => setLessonAllergens(e.target.value)}
+                            placeholder="npr. gluten, kikiriki"
                         />
 
                         {lessonSteps.map((step, i) => (
@@ -1224,6 +1534,389 @@ export default function VideoLectures() {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Edit Lesson Dialog */}
+            <Dialog
+                open={openLessonEdit}
+                onClose={() => {
+                    setOpenLessonEdit(false);
+                    setLessonToEdit(null);
+                    resetLessonForm();
+                }}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>Uredi lekciju</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} mt={1}>
+                        <TextField
+                            label="Naziv lekcije"
+                            value={lessonCreateTitle}
+                            onChange={(e) => setLessonCreateTitle(e.target.value)}
+                            required
+                            autoFocus
+                        />
+                        <TextField
+                            label="Opis"
+                            value={lessonCreateDescription}
+                            onChange={(e) => setLessonCreateDescription(e.target.value)}
+                            required
+                        />
+                        <TextField
+                            label="Sadržaj"
+                            value={lessonContent}
+                            onChange={(e) => setLessonContent(e.target.value)}
+                            required
+                        />
+                        <FormControl required>
+                            <InputLabel id="course-edit-select-label">Course</InputLabel>
+                            <Select
+                                labelId="course-edit-select-label"
+                                value={courseId}
+                                label="Course"
+                                onChange={(e) => setCourseId(e.target.value)}
+                                disabled
+                            >
+                                {(isAdmin ? courses : manageableCourses).map((course) => (
+                                    <MenuItem key={course.id} value={course.id}>
+                                        {course.title}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <TextField
+                            label="Video url"
+                            value={lessonVideoUrl}
+                            onChange={(e) => setLessonVideoUrl(e.target.value)}
+                        />
+                        <FormControl>
+                            <InputLabel id="lesson-edit-difficulty-label">Težina</InputLabel>
+                            <Select
+                                labelId="lesson-edit-difficulty-label"
+                                value={lessonDifficultyLevel}
+                                label="Težina"
+                                onChange={(e) => setLessonDifficultyLevel(e.target.value)}
+                            >
+                                <MenuItem value=""><em>Bez</em></MenuItem>
+                                <MenuItem value="BEGINNER">Početni</MenuItem>
+                                <MenuItem value="INTERMEDIATE">Srednji</MenuItem>
+                                <MenuItem value="ADVANCED">Napredni</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField
+                            label="Trajanje (minute)"
+                            value={lessonDuration}
+                            onChange={(e) => setLessonDuration(e.target.value.replace(/[^\d]/g, ""))}
+                            inputMode="numeric"
+                        />
+                        <TextField
+                            label="Kuhinja"
+                            value={lessonCuisine}
+                            onChange={(e) => setLessonCuisine(e.target.value)}
+                        />
+                        <TextField
+                            label="Prehrambene oznake (zarezom odvojeno)"
+                            value={lessonDietaryTags}
+                            onChange={(e) => setLessonDietaryTags(e.target.value)}
+                        />
+                        <TextField
+                            label="Alergeni (zarezom odvojeno)"
+                            value={lessonAllergens}
+                            onChange={(e) => setLessonAllergens(e.target.value)}
+                        />
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={lessonPublished}
+                                    onChange={(e) => setLessonPublished(e.target.checked)}
+                                    color="primary"
+                                />
+                            }
+                            label="Objavi"
+                        />
+
+                        <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                            Koraci
+                        </Typography>
+                        {lessonSteps.map((step, i) => (
+                            <TextField
+                                key={`edit-step-${i}`}
+                                label={`Korak ${i + 1}`}
+                                value={step}
+                                onChange={(e) => updateArrayItem(setLessonSteps, i, e.target.value)}
+                            />
+                        ))}
+                        <Button onClick={() => setLessonSteps((prev) => [...prev, ""])}>Dodaj korak</Button>
+
+                        <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                            Sastojci
+                        </Typography>
+                        {lessonIngredients.map((ingredient, i) => (
+                            <Stack key={`edit-ingredient-${i}`} direction="row" spacing={1}>
+                                <TextField
+                                    label="Naziv"
+                                    value={ingredient.name}
+                                    onChange={(e) => updateIngredient(i, "name", e.target.value)}
+                                    fullWidth
+                                />
+                                <TextField
+                                    label="Količina"
+                                    value={ingredient.amount}
+                                    onChange={(e) => updateIngredient(i, "amount", e.target.value)}
+                                    fullWidth
+                                />
+                            </Stack>
+                        ))}
+                        <Button onClick={() => setLessonIngredients((prev) => [...prev, { name: "", amount: "" }])}>
+                            Dodaj sastojak
+                        </Button>
+
+                        <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                            Nutricija
+                        </Typography>
+                        {lessonNutrition.map((nutrition, i) => (
+                            <Stack key={`edit-nutrition-${i}`} direction="row" spacing={1}>
+                                <TextField
+                                    label="Naziv"
+                                    value={nutrition.label}
+                                    onChange={(e) => updateNutrition(i, "label", e.target.value)}
+                                    fullWidth
+                                />
+                                <TextField
+                                    label="Vrijednost"
+                                    value={nutrition.value}
+                                    onChange={(e) => updateNutrition(i, "value", e.target.value)}
+                                    fullWidth
+                                />
+                            </Stack>
+                        ))}
+                        <Button onClick={() => setLessonNutrition((prev) => [...prev, { label: "", value: "" }])}>
+                            Dodaj nutriciju
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => {
+                            setOpenLessonEdit(false);
+                            setLessonToEdit(null);
+                            resetLessonForm();
+                        }}
+                    >
+                        Odustani
+                    </Button>
+                    <Button variant="contained" onClick={handleUpdateLesson} disabled={loading}>
+                        Spremi
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Edit Course Dialog */}
+            <Dialog
+                open={editCourseOpen}
+                onClose={() => {
+                    setEditCourseOpen(false);
+                    setCourseToEdit(null);
+                    resetCourseForm();
+                }}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>Uredi tečaj</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} mt={1}>
+                        <TextField
+                            label="Naziv tečaja"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            required
+                            autoFocus
+                        />
+                        <TextField
+                            label="Opis"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            multiline
+                            rows={3}
+                        />
+                        <FormControl>
+                            <InputLabel id="course-edit-difficulty-label">Razina težine</InputLabel>
+                            <Select
+                                labelId="course-edit-difficulty-label"
+                                value={courseDifficultyLevel}
+                                label="Razina težine"
+                                onChange={(e) => setCourseDifficultyLevel(e.target.value)}
+                            >
+                                <MenuItem value=""><em>Bez</em></MenuItem>
+                                <MenuItem value="BEGINNER">Početni</MenuItem>
+                                <MenuItem value="INTERMEDIATE">Srednji</MenuItem>
+                                <MenuItem value="ADVANCED">Napredni</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField
+                            label="Trajanje (minute)"
+                            value={courseDuration}
+                            onChange={(e) => setCourseDuration(e.target.value.replace(/[^\d]/g, ""))}
+                            inputMode="numeric"
+                            placeholder="npr. 120"
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => {
+                            setEditCourseOpen(false);
+                            setCourseToEdit(null);
+                            resetCourseForm();
+                        }}
+                    >
+                        Odustani
+                    </Button>
+                    <Button variant="contained" onClick={handleUpdateCourse} disabled={loading}>
+                        Spremi
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Instructor/Admin course management */}
+            {isInstructor && (
+                <Paper sx={{ p: 2, mt: 2, mb: 2 }}>
+                    <Typography variant="h6" gutterBottom>
+                        {isAdmin ? "Tečajevi" : "Moji tečajevi"}
+                    </Typography>
+                    {manageableCourses.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            Još nemate kreiranih tečajeva.
+                        </Typography>
+                    ) : (
+                        <Stack spacing={1}>
+                            {manageableCourses.map((course) => (
+                                <Box
+                                    key={course.id}
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 1,
+                                        p: 1,
+                                        borderRadius: 1,
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                    }}
+                                >
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap>
+                                            {course.title}
+                                        </Typography>
+                                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
+                                            {course.difficultyLevel && (
+                                                <Chip size="small" label={`Težina: ${course.difficultyLevel}`} />
+                                            )}
+                                            {course.duration !== null && course.duration !== undefined && (
+                                                <Chip size="small" label={`Trajanje: ${course.duration} min`} />
+                                            )}
+                                        </Stack>
+                                    </Box>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                        <Tooltip title="Uredi tečaj">
+                                            <IconButton size="small" onClick={() => openEditCourseDialog(course)}>
+                                                <EditIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Obriši tečaj">
+                                            <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={() => {
+                                                    setItemToDelete({ type: "course", id: course.id, title: course.title });
+                                                    setDeleteDialogOpen(true);
+                                                }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </Box>
+                                </Box>
+                            ))}
+                        </Stack>
+                    )}
+                </Paper>
+            )}
+
+            {/* UC-15: Student progress per course + certificate */}
+            {session?.user?.id && (
+                <Paper sx={{ p: 2, mt: 2, mb: 2 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+                        <Typography variant="h6" gutterBottom>
+                            Moj napredak
+                        </Typography>
+                        {progressLoading && <CircularProgress size={18} />}
+                    </Box>
+
+                    {progressSummary.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            Još nema napretka. Riješi kviz s 100% točnosti da označiš lekciju kao riješenu.
+                        </Typography>
+                    ) : (
+                        <Stack spacing={2}>
+                            {progressSummary.map((p) => (
+                                <Box
+                                    key={p.courseId}
+                                    sx={{
+                                        p: 1,
+                                        borderRadius: 1,
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                    }}
+                                >
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap>
+                                                {p.courseTitle}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {p.completedLessons}/{p.totalLessons} lekcija · {p.percentage}%
+                                            </Typography>
+                                        </Box>
+                                        {p.percentage === 100 && (
+                                            <Button
+                                                size="small"
+                                                variant="contained"
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await fetch("/api/certificates", {
+                                                            method: "POST",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({ courseId: p.courseId }),
+                                                        });
+                                                        const cert = await res.json();
+                                                        if (!res.ok) {
+                                                            alert(cert.message || "Greška pri dohvaćanju certifikata");
+                                                            return;
+                                                        }
+                                                        if (cert.pdfUrl) {
+                                                            window.open(cert.pdfUrl, "_blank");
+                                                        } else {
+                                                            alert("Certifikat je izdan, ali PDF još nije dostupan.");
+                                                        }
+                                                    } catch (e) {
+                                                        alert(e instanceof Error ? e.message : "Greška");
+                                                    }
+                                                }}
+                                            >
+                                                Preuzmi certifikat
+                                            </Button>
+                                        )}
+                                    </Box>
+                                    <Box sx={{ mt: 1 }}>
+                                        <LinearProgress variant="determinate" value={p.percentage} />
+                                    </Box>
+                                </Box>
+                            ))}
+                        </Stack>
+                    )}
+                </Paper>
+            )}
 
             {loading && (
                 <Box sx={{display: "flex", justifyContent: "center", p: 4}}>
@@ -1389,7 +2082,30 @@ export default function VideoLectures() {
                                     position: "relative"
                                 }}
                             >
-                                {/* Delete button for instructors/admins */}
+                                {/* Edit/Delete buttons for instructors/admins */}
+                                {canDelete && (
+                                    <Tooltip title="Uredi lekciju">
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                openEditLessonDialog({ lesson, course });
+                                            }}
+                                            sx={{
+                                                position: "absolute",
+                                                top: 8,
+                                                right: 44,
+                                                zIndex: 10,
+                                                bgcolor: "rgba(0,0,0,0.6)",
+                                                "&:hover": {
+                                                    bgcolor: "rgba(0,0,0,0.8)"
+                                                }
+                                            }}
+                                        >
+                                            <EditIcon fontSize="small" />
+                                        </IconButton>
+                                    </Tooltip>
+                                )}
                                 {canDelete && (
                                     <Tooltip title="Obriši lekciju">
                                         <IconButton
@@ -1504,6 +2220,13 @@ export default function VideoLectures() {
                                 <Typography variant="subtitle1" color="text.secondary">
                                     Instruktor: {selectedLesson.course.instructorName}
                                 </Typography>
+                                {instructorReviewCount > 0 && instructorAverageRating !== null && (
+                                    <Chip
+                                        size="small"
+                                        color="warning"
+                                        label={`⭐ ${instructorAverageRating.toFixed(1)} (${instructorReviewCount})`}
+                                    />
+                                )}
                                 {session?.user?.id && (
                                     <Button
                                         size="small"
@@ -1534,7 +2257,7 @@ export default function VideoLectures() {
                                         {selectedLesson.course.instructorName}.
                                     </Alert>
                                     <Button variant="contained" size="small"
-                                            onClick={() => markLessonStarted(selectedLesson.lesson.id)}>
+                                            onClick={() => markLessonStarted(selectedLesson.course.id, selectedLesson.lesson.id)}>
                                         Označi lekciju započetom
                                     </Button>
                                 </Box>

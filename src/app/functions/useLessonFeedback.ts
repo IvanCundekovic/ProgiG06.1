@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import type {LessonReview, LessonQuestion} from "@/app/types/quiz";
 
 type CreateReviewInput = {
@@ -25,53 +25,63 @@ type RespondToReviewInput = {
     message: string;
 };
 
-const STORAGE_KEY = "startedLessons";
-
-const isBrowser = typeof window !== "undefined";
-
 export function useLessonFeedback() {
     const [reviews, setReviews] = useState<LessonReview[]>([]);
     const [questions, setQuestions] = useState<LessonQuestion[]>([]);
-    const [startedLessons, setStartedLessons] = useState<string[]>([]);
+    // UC-10: "započni lekciju" se pamti u bazi (Progress), ne u localStorage
+    // key = `${courseId}:${lessonId}`
+    const [startedLessonKeys, setStartedLessonKeys] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
 
-    // Učitaj startedLessons iz localStorage
+    // Učitaj started lessons iz Progress tablice (ako je korisnik prijavljen)
     useEffect(() => {
-        if (!isBrowser) {
-            return;
-        }
-        const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (stored) {
+        (async () => {
             try {
-                const parsed = JSON.parse(stored) as string[];
-                setStartedLessons(parsed);
-            } catch (error) {
-                console.warn("Neuspjelo parsiranje startedLessons:", error);
+                const res = await fetch("/api/progress");
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!Array.isArray(data)) return;
+                const keys = new Set<string>();
+                data.forEach((p: {courseId?: string; lessonId?: string | null}) => {
+                    if (p.courseId && p.lessonId) {
+                        keys.add(`${p.courseId}:${p.lessonId}`);
+                    }
+                });
+                setStartedLessonKeys(keys);
+            } catch {
+                // ignore
             }
-        }
+        })();
     }, []);
 
-    // Spremi startedLessons u localStorage
-    useEffect(() => {
-        if (!isBrowser) {
-            return;
+    const markLessonStarted = useCallback(async (courseId: string, lessonId: string) => {
+        const key = `${courseId}:${lessonId}`;
+        if (startedLessonKeys.has(key)) return;
+        try {
+            await fetch("/api/progress", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    courseId,
+                    lessonId,
+                    completionPercentage: 0,
+                    isCompleted: false,
+                }),
+            });
+        } finally {
+            setStartedLessonKeys(prev => {
+                const next = new Set(prev);
+                next.add(key);
+                return next;
+            });
         }
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(startedLessons));
-    }, [startedLessons]);
+    }, [startedLessonKeys]);
 
-    const markLessonStarted = useCallback((lessonId: string) => {
-        setStartedLessons(prev => {
-            if (prev.includes(lessonId)) {
-                return prev;
-            }
-            return [...prev, lessonId];
-        });
-    }, []);
+    const hasStartedLesson = useCallback((courseId: string, lessonId: string) => {
+        return startedLessonKeys.has(`${courseId}:${lessonId}`);
+    }, [startedLessonKeys]);
 
-    const hasStartedLesson = useCallback(
-        (lessonId: string) => startedLessons.includes(lessonId),
-        [startedLessons]
-    );
+    const startedLessonsCount = useMemo(() => startedLessonKeys.size, [startedLessonKeys]);
 
     const addReview = useCallback(
         async ({courseId, lessonId, rating, comment, photoDataUrl}: CreateReviewInput) => {
@@ -305,7 +315,7 @@ export function useLessonFeedback() {
     return {
         reviews,
         questions,
-        startedLessons,
+        startedLessonsCount,
         loading,
         markLessonStarted,
         hasStartedLesson,

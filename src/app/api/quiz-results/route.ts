@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/prisma";
 import { requireAuth } from "@/app/lib/api-helpers";
+import { generateCertificatePDF } from "@/app/lib/pdf-generator";
 
 // GET /api/quiz-results - Dohvati sve rezultate korisnika
 export async function GET(request: NextRequest) {
@@ -178,6 +179,121 @@ export async function POST(request: NextRequest) {
       completedAt: result.completedAt,
       isCompleted: result.isCompleted,
     };
+
+    // UC-15: Ako je kviz 100% točan, označi lekciju kao riješenu (progress) i po potrebi izdaj certifikat
+    const lessonId = quiz.lessonId || "";
+    const courseId = quiz.lesson?.courseId || "";
+
+    if (percentage === 100 && lessonId && courseId) {
+      await prisma.progress.upsert({
+        where: {
+          userId_courseId_lessonId: {
+            userId,
+            courseId,
+            lessonId,
+          },
+        },
+        update: {
+          completionPercentage: 100,
+          isCompleted: true,
+          lastAccessedAt: new Date(),
+          completedAt: new Date(),
+        },
+        create: {
+          userId,
+          courseId,
+          lessonId,
+          completionPercentage: 100,
+          isCompleted: true,
+          startedAt: new Date(),
+          completedAt: new Date(),
+          lastAccessedAt: new Date(),
+        },
+      });
+
+      // Provjeri je li tečaj dovršen (računamo samo objavljene lekcije)
+      const course = await prisma.course.findUnique({
+        where: { id: courseId },
+        select: {
+          id: true,
+          title: true,
+          lessons: {
+            where: { published: true },
+            select: { id: true },
+          },
+        },
+      });
+
+      if (course && course.lessons.length > 0) {
+        const lessonIds = course.lessons.map((l) => l.id);
+
+        const completedCount = await prisma.progress.count({
+          where: {
+            userId,
+            courseId,
+            lessonId: { in: lessonIds },
+            isCompleted: true,
+          },
+        });
+
+        const allCompleted = completedCount === lessonIds.length;
+        if (allCompleted) {
+          const existingCertificate = await prisma.certificate.findUnique({
+            where: {
+              userId_courseId: {
+                userId,
+                courseId,
+              },
+            },
+          });
+
+          if (!existingCertificate) {
+            const certificate = await prisma.certificate.create({
+              data: {
+                userId,
+                courseId,
+                courseTitle: course.title,
+              },
+            });
+
+            await prisma.userNotification.create({
+              data: {
+                userId,
+                type: "CERTIFICATE_ISSUED",
+                title: "Certifikat",
+                message: `Čestitamo! Dovršili ste tečaj "${course.title}" i dobili certifikat.`,
+                url: "/Homepage",
+              },
+            });
+
+            try {
+              const userForPdf = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { name: true, email: true },
+              });
+
+              const userName = userForPdf?.name || userForPdf?.email || "Korisnik";
+              const pdfBuffer = await generateCertificatePDF({
+                userName,
+                courseTitle: course.title,
+                issuedAt: certificate.issuedAt,
+                certificateId: certificate.id,
+              });
+
+              const pdfBase64 = pdfBuffer.toString("base64");
+              const pdfUrl = `data:application/pdf;base64,${pdfBase64}`;
+
+              await prisma.certificate.update({
+                where: { id: certificate.id },
+                data: { pdfUrl },
+              });
+            } catch (pdfError) {
+              console.error("Error generating PDF:", pdfError);
+            }
+          }
+        }
+      }
+    }
 
     return NextResponse.json(transformedResult, { status: 201 });
   } catch (error) {

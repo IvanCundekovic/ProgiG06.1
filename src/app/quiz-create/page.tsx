@@ -167,7 +167,9 @@ export default function CreateQuiz() {
 
             setSuccess(true);
             setTimeout(() => {
+                // Force refresh so cached /api/courses state updates immediately
                 router.push("/Homepage");
+                router.refresh();
             }, 2000);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Greska pri kreiranju kviza");
