@@ -3,9 +3,31 @@
 import {prisma} from "@/prisma";
 import bcrypt from "bcryptjs";
 import {signIn} from "../auth";
+import {revalidatePath} from "next/cache";
+import {redirect} from "next/navigation";
+
+type Credentials = {
+    identifier: string;
+    password: string;
+};
 
 export async function loginWithProvider(provider: "google" | "github") {
     await signIn(provider, { redirectTo: "/Homepage" });
+}
+
+export async function loginWithCredentials(credentials: Credentials) {
+    try {
+        await signIn("credentials", {
+            identifier: credentials.identifier,
+            password: credentials.password,
+            redirect: false,
+        });
+    } catch (error) {
+        throw error;
+    }
+
+    revalidatePath("/", "layout");
+    redirect("/Homepage");
 }
 
 export async function hashPassword(password: string): Promise<string> {

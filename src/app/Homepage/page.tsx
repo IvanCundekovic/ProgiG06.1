@@ -5,13 +5,13 @@ import {
     Box,
     Button,
     Drawer,
+    IconButton,
     List,
     ListItem,
     ListItemButton,
     ListItemText,
     Toolbar,
     Typography,
-    IconButton,
     useMediaQuery,
     useTheme
 } from "@mui/material";
@@ -41,6 +41,10 @@ export default function Homepage() {
 
     // UC-5: ako je prva prijava, prisili promjenu lozinke
     useEffect(() => {
+        if (status === "authenticated" && session?.user?.mustChangePassword === false) {
+            return;
+        }
+        
         if (status === "authenticated" && session?.user?.mustChangePassword) {
             router.push("/profile?forcePasswordChange=1");
         }
@@ -84,7 +88,7 @@ export default function Homepage() {
                                 onClick={handleDrawerToggle}
                                 sx={{mr: 2}}
                             >
-                                <MenuIcon />
+                                <MenuIcon/>
                             </IconButton>
                         )}
                         <Typography variant="h6" noWrap>
@@ -95,7 +99,7 @@ export default function Homepage() {
                     <Box sx={{display: "flex", alignItems: "center", gap: 1}}>
                         {/* NF-013: Dark mode toggle */}
                         <IconButton onClick={toggleMode} color="inherit">
-                            {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
+                            {mode === "dark" ? <Brightness7Icon/> : <Brightness4Icon/>}
                         </IconButton>
 
                         {!isAuthenticated ? (
@@ -177,7 +181,7 @@ export default function Homepage() {
                                     }
                                 }}
                             >
-                                <ListItemText primary={text} />
+                                <ListItemText primary={text}/>
                             </ListItemButton>
                         </ListItem>
                     ))}
@@ -193,7 +197,7 @@ export default function Homepage() {
                     width: {xs: "100%", md: `calc(100% - ${isMobile ? 0 : "18vw"})`},
                 }}
             >
-                
+
 
                 {selectedCategory === "Live radionice" && (<LiveWorkshops/>)}
 
