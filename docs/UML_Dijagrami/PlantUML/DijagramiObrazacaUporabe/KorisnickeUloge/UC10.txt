@@ -1,0 +1,41 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC10: Ocjene, recenzije i komentari
+
+actor "Polaznik" as Student
+actor "Instruktor" as Instructor
+actor "Baza podataka" as DB #gray
+
+rectangle "UC10 – Ocjene i komentari" {
+  (UC10.1 - Ocjenjivanje tecaja ili lekcije)
+  (UC10.2 - Dodavanje komentara i fotografije)
+  (UC10.3 - Odgovor instruktora na komentare i pitanja)
+  (UC10.4 - Prikaz prosjecnih ocjena i recenzija)
+  (UC10.5 - Pohrana i dohvat podataka)
+  (UC10.6 - Ocjenjivanje onemoguceno - lekcija nije zapoceta)
+}
+
+
+Student --> (UC10.1 - Ocjenjivanje tecaja ili lekcije)
+Student --> (UC10.2 - Dodavanje komentara i fotografije)
+Student --> (UC10.4 - Prikaz prosjecnih ocjena i recenzija)
+
+
+Instructor --> (UC10.3 - Odgovor instruktora na komentare i pitanja)
+Instructor --> (UC10.4 - Prikaz prosjecnih ocjena i recenzija)
+
+
+(UC10.1 - Ocjenjivanje tecaja ili lekcije) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+(UC10.2 - Dodavanje komentara i fotografije) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+(UC10.3 - Odgovor instruktora na komentare i pitanja) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+(UC10.4 - Prikaz prosjecnih ocjena i recenzija) ..> (UC10.5 - Pohrana i dohvat podataka) : <<include>>
+
+
+(UC10.6 - Ocjenjivanje onemoguceno - lekcija nije zapoceta) ..> (UC10.1 - Ocjenjivanje tecaja ili lekcije) : <<extend>>
+
+
+(UC10.5 - Pohrana i dohvat podataka) --> DB : Spremanje / dohvat informacija
+
+@enduml
