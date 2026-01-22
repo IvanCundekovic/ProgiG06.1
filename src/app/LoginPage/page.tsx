@@ -1,14 +1,12 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
 import {Box, Button, Checkbox, Container, Divider, FormControlLabel, Paper, TextField, Typography} from "@mui/material";
-import {signIn} from "next-auth/react";
 import Image from "next/image";
-import {useRouter} from "next/navigation";
-import {loginWithProvider} from "../lib/auth-utils";
+import {loginWithCredentials, loginWithProvider} from "../lib/auth-utils";
+import {isRedirectError} from "next/dist/client/components/redirect-error";
 
 export default function LoginPage() {
-    const router = useRouter();
     const [availableProviders, setAvailableProviders] = useState<string[]>(["google", "github"]);
 
     // Učitaj dostupne OAuth providere
@@ -39,12 +37,8 @@ export default function LoginPage() {
 
         try {
             if (isLoginMode) {
-                await signIn('credentials', {
-                    identifier,
-                    password,
-                    redirect: true,
-                    callbackUrl: "/Homepage",
-                });
+                await loginWithCredentials({identifier, password});
+                window.location.href = "/Homepage";
             } else {
                 if (password !== repeatPassword) {
                     setError("Lozinka i ponovljena lozinka se ne podudaraju.");
@@ -59,35 +53,36 @@ export default function LoginPage() {
 
                 const response = await fetch('/api/register', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ username, email, password }),
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, email, password}),
                 });
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    setError(data.message || "Registracija neuspješna. Pokušajte ponovno.");
+                    setError(data.message || "Registracija neuspješna.");
                 } else {
-                    const loginResult = await signIn('credentials', {
-                        identifier: email,
-                        password: password,
-                        redirect: false,
-                    });
-
-                    if (loginResult?.ok) {
-                        router.refresh();
-                        router.push("/Homepage");
-                    } else {
-                        setError("Registracija je uspješna! Molimo se sada prijavite.");
-                        setIsLoginMode(true);
-                    }
+                    await loginWithCredentials({identifier: email, password});
+                    window.location.href = "/Homepage";
                 }
             }
-        } catch (err) {
-            console.error("Greška prilikom obrade zahtjeva:", err);
-            setError("Došlo je do neočekivane greške.");
+        } catch (err: unknown) {
+            // Provjera je li greška zapravo Next.js redirect
+            if (isRedirectError(err)) {
+                window.location.href = "/Homepage";
+                return;
+            }
+
+            // Sigurno izvlačenje poruke iz unknown greške
+            const errorMessage = err instanceof Error ? err.message : "Prijava neuspješna. Provjerite podatke.";
+
+            console.error("Greška prilikom prijave:", err);
+            setError(errorMessage === "NEXT_REDIRECT" ? "" : errorMessage);
+
+            // Ako je poruka bila NEXT_REDIRECT, a isRedirectError je nije uhvatio (rijetko u Next 15)
+            if (errorMessage === "NEXT_REDIRECT") {
+                window.location.href = "/Homepage";
+            }
         } finally {
             setLoading(false);
         }
@@ -136,11 +131,11 @@ export default function LoginPage() {
     );
 
     const GitHubIcon = (
-        <Image src="/github.svg" alt="GitHub Logo" width={24} height={24} />
+        <Image src="/github.svg" alt="GitHub Logo" width={24} height={24}/>
     );
 
     const GoogleIcon = (
-        <Image src="/google.svg" alt="Google Logo" width={24} height={24} />
+        <Image src="/google.svg" alt="Google Logo" width={24} height={24}/>
     );
 
     const toggleMode = () => {
@@ -293,7 +288,12 @@ export default function LoginPage() {
                                                     e.preventDefault();
                                                     window.open("/terms", "_blank");
                                                 }}
-                                                sx={{textTransform: "none", p: 0, minWidth: "auto", textDecoration: "underline"}}
+                                                sx={{
+                                                    textTransform: "none",
+                                                    p: 0,
+                                                    minWidth: "auto",
+                                                    textDecoration: "underline"
+                                                }}
                                             >
                                                 uvjetima korištenja
                                             </Button>
@@ -305,7 +305,12 @@ export default function LoginPage() {
                                                     e.preventDefault();
                                                     window.open("/privacy", "_blank");
                                                 }}
-                                                sx={{textTransform: "none", p: 0, minWidth: "auto", textDecoration: "underline"}}
+                                                sx={{
+                                                    textTransform: "none",
+                                                    p: 0,
+                                                    minWidth: "auto",
+                                                    textDecoration: "underline"
+                                                }}
                                             >
                                                 politikom privatnosti
                                             </Button>
@@ -339,7 +344,8 @@ export default function LoginPage() {
                         </Button>
                     </Box>
 
-                    <Button variant="text" fullWidth sx={{mt: 1, textTransform: 'none'}} onClick={toggleMode} disabled={loading}>
+                    <Button variant="text" fullWidth sx={{mt: 1, textTransform: 'none'}} onClick={toggleMode}
+                            disabled={loading}>
                         {isLoginMode
                             ? "Nemaš račun? Registriraj se!"
                             : "Već imaš račun? Prijavi se!"

@@ -1,19 +1,29 @@
-import GitHub from "next-auth/providers/github"
-import Google from "next-auth/providers/google"
+import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import {PrismaAdapter} from "@auth/prisma-adapter"
-import {prisma} from "@/prisma"
+import {PrismaAdapter} from "@auth/prisma-adapter";
+import {prisma} from "@/prisma";
 import {findUserByEmail, verifyPassword} from "@/app/lib/auth-utils";
-
 import {Role} from "@prisma/client";
-import NextAuth, {NextAuthConfig, User} from "next-auth";
+import NextAuth, {type NextAuthConfig} from "next-auth";
+import {type JWT} from "next-auth/jwt";
 import {sendWelcomeEmail} from "@/app/lib/email-service";
 
-interface ExtendedUser extends User {
-    id: string;
-    email: string;
-    role: Role;
-    mustChangePassword?: boolean;
+
+declare module "next-auth" {
+    interface User {
+        id?: string;
+        role: Role;
+        mustChangePassword?: boolean;
+    }
+}
+
+declare module "next-auth/jwt" {
+    interface JWT {
+        id: string;
+        role: Role;
+        mustChangePassword: boolean;
+    }
 }
 
 export const authOptions: NextAuthConfig = {
@@ -33,6 +43,7 @@ export const authOptions: NextAuthConfig = {
                 const identifier = credentials.identifier as string;
                 const password = credentials.password as string;
                 const user = await findUserByEmail(identifier);
+
                 if (!user || !user.passwordHash) {
                     return null;
                 }
@@ -40,10 +51,9 @@ export const authOptions: NextAuthConfig = {
                 const isValid = await verifyPassword(password, user.passwordHash);
 
                 if (isValid) {
-                    // UC-5: Prva prijava -> korisnik mora promijeniti lozinku
                     if (!user.firstLoginAt) {
                         await prisma.user.update({
-                            where: { id: user.id },
+                            where: {id: user.id},
                             data: {
                                 mustChangePassword: true,
                                 firstLoginAt: new Date(),
@@ -77,37 +87,46 @@ export const authOptions: NextAuthConfig = {
     ],
     session: {
         strategy: "jwt",
-        maxAge: 30 * 24 * 60 * 60, // 30 dana
+        maxAge: 30 * 24 * 60 * 60,
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({token, user, trigger, session}): Promise<JWT> {
+            // Inicijalna prijava
             if (user) {
-                token.id = user.id;
-                // @ts-ignore
-                token.role = user.role;
+                token.id = user.id as string;
+                token.role = user.role as Role;
+                token.mustChangePassword = user.mustChangePassword ?? false;
             }
-            return token;
+
+            // Update trigger za promjenu lozinke bez logouta
+            if (trigger === "update") {
+                if (session?.user && session.user.mustChangePassword !== undefined) {
+                    token.mustChangePassword = session.user.mustChangePassword;
+                } else if (session?.mustChangePassword !== undefined) {
+                    token.mustChangePassword = session.mustChangePassword;
+                }
+            }
+
+            return token as JWT;
         },
-        async session({ session, token }) {
+        async session({session, token}) {
             if (token && session.user) {
-                (session.user as ExtendedUser).id = token.id as string;
-                (session.user as ExtendedUser).role = token.role as Role;
+                session.user.id = token.id;
+                session.user.role = token.role;
+                session.user.mustChangePassword = token.mustChangePassword;
             }
             return session;
         },
     },
     events: {
         async createUser(message) {
-
             const {user} = message;
-
             await sendWelcomeEmail(user);
         }
     },
     pages: {
         signIn: '/LoginPage',
     },
-}
+};
 
 export const {handlers, auth, signIn, signOut} = NextAuth(authOptions);
-
