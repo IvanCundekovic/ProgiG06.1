@@ -1,13 +1,18 @@
 import {Resend} from 'resend';
 import {User} from 'next-auth';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+function getResendClient() {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) return null;
+    return new Resend(key);
+}
 
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Onboarding <onboarding@resend.dev>';
 
 // Helper funkcija za slanje emaila
 async function sendEmail(to: string, subject: string, html: string) {
+    const resend = getResendClient();
+
     if (!resend) {
         console.warn("Resend API ključ nije postavljen. E-mail neće biti poslan.");
         return false;
