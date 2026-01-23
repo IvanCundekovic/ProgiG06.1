@@ -1884,6 +1884,7 @@ export default function VideoLectures() {
                                                 variant="contained"
                                                 onClick={async () => {
                                                     try {
+                                                        // Prvo kreiraj/dohvati certifikat
                                                         const res = await fetch("/api/certificates", {
                                                             method: "POST",
                                                             headers: { "Content-Type": "application/json" },
@@ -1894,11 +1895,25 @@ export default function VideoLectures() {
                                                             alert(cert.message || "Greška pri dohvaćanju certifikata");
                                                             return;
                                                         }
-                                                        if (cert.pdfUrl) {
-                                                            window.open(cert.pdfUrl, "_blank");
-                                                        } else {
-                                                            alert("Certifikat je izdan, ali PDF još nije dostupan.");
+                                                        
+                                                        // Downloadaj PDF pomoću novog endpointa
+                                                        const downloadRes = await fetch(`/api/certificates/${cert.id}/download`);
+                                                        if (!downloadRes.ok) {
+                                                            const error = await downloadRes.json();
+                                                            alert(error.message || "Greška pri preuzimanju certifikata");
+                                                            return;
                                                         }
+                                                        
+                                                        // Kreiraj blob i downloadaj
+                                                        const blob = await downloadRes.blob();
+                                                        const url = window.URL.createObjectURL(blob);
+                                                        const a = document.createElement("a");
+                                                        a.href = url;
+                                                        a.download = `certifikat-${p.courseTitle.replace(/[^a-z0-9]/gi, "_")}-${cert.id}.pdf`;
+                                                        document.body.appendChild(a);
+                                                        a.click();
+                                                        window.URL.revokeObjectURL(url);
+                                                        document.body.removeChild(a);
                                                     } catch (e) {
                                                         alert(e instanceof Error ? e.message : "Greška");
                                                     }
