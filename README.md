@@ -44,10 +44,18 @@ Aplikacija je automatski deployana putem CI/CD procesa na: **[kuhaona.org](https
 ## Završene funkcionalnosti (Trenutni Status)
 > Ovaj dio će biti izmjenjen u toku razvoja projekta te potencijalno neće biti savršeno usklađen u samom trenutku razvoja
 
-Trenutno su implementirane i stabilne sljedeće ključne funkcionalnosti:
+Trenutačno su implementirane i stabilne sljedeće ključne funkcionalnosti:
 * **Autentikacija:** Registracija i prijava putem **OAuth 2.0** servisa (Google i GitHub).
 * **Lokalna Autentikacija:** Registracija i prijava putem e-pošte i lozinke.
-* **Infrastruktura:** Postavljena je veza s PostgreSQL bazom na Supabase-u pomoću Prisme.
+* **Učenički, instruktorski i administratorski računi** Različite uloge imaju različite ovlasti
+* **Uređivanje profila** Postavljanje alergena, preferenci i brisanje profila
+* **Stvaranje video lekcija, radionica i kvizova** Instruktori mogu stvarati i brisati video lekcije, radionice i kvizove
+* **Recenzije** Korisnici mogu stavljati recenzije na video lekcije
+* **Pohađanje tečajeva** Korisnici mogu pohađati tečajeve
+* **Kvizovi** Korisnici mogu rješavati kvizove vezane uz video lekcije
+* **Praćenje napretka** Kada korisnici završe tečaj, generira se certifikat o završenom tečaju
+* **Radionicama** Korisnici mogu sudjelovati u radionicama
+* **Administracija** Administratori mogu upravljati korisnicima, brisati recenzije, video lekcije, radionice i kvizove, verificirati instruktore.
 
 # Instalacija
 Za lokalno pokretanje razvojnog okruženja slijedite ove korake:
