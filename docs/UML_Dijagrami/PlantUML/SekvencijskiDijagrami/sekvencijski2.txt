@@ -1,0 +1,46 @@
+@startuml
+title Live radionice: zakazivanje, prijave i izvođenje
+
+actor Instruktor
+actor Polaznik
+participant "Web aplikacija" as UI
+database "Baza podataka" as DB
+participant "Video servis" as VS
+participant "E-mail/Push servis" as Notify
+
+== Kreiranje radionice ==
+
+Instruktor -> UI : Kreira novu live radionicu
+UI -> DB : Spremi podatke o radionici
+UI -> Notify : Potvrda instruktoru
+Notify --> Instruktor : "Radionica zakazana"
+
+== Prijave polaznika ==
+
+Polaznik -> UI : Pregled radionica
+UI -> DB : Dohvati radionice
+DB --> UI : Lista radionica
+UI --> Polaznik : Prikaz dostupnih radionica
+
+Polaznik -> UI : Prijava na radionicu
+UI -> DB : Provjeri kapacitet i preduvjete
+alt Preduvjeti ispunjeni
+  UI -> DB : Spremi prijavu
+  UI -> Notify : Potvrda prijave
+  Notify --> Polaznik : "Uspješno prijavljeni"
+else Preduvjeti neispunjeni
+  UI --> Polaznik : "Preduvjeti nisu ispunjeni"
+end
+
+== Izvođenje radionice ==
+
+UI -> Notify : Pošalji podsjetnik
+Notify --> Polaznik : "Radionica počinje uskoro"
+
+Polaznik -> UI : Pristupi radionici
+UI -> DB : Provjeri prijavu
+UI -> VS : Generiraj poveznicu
+UI --> Polaznik : Preusmjeri na video servis
+VS --> Polaznik : Live prijenos radionice
+
+@enduml

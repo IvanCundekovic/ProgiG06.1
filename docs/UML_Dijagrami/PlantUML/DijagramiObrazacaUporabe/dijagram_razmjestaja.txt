@@ -1,0 +1,27 @@
+@startuml
+skinparam backgroundColor #FEFEFE
+skinparam node {
+    BackgroundColor #FFFFCC
+    BorderColor #000000
+}
+
+node "<<device>>\nKlijent" as ClientPC {
+    artifact "<<artifact>>\n**Web preglednik**" as Browser
+}
+
+node "<<service>>\nVercel" as Vercel {
+    artifact "<<artifact>>\n**Next.js aplikacija**" as NextApp
+}
+
+node "<<service>>\nSupabase" as Supabase {
+    artifact "<<artifact>>\n**PostgreSQL baza podataka**" as PostgresDB
+}
+
+node "<<service>>\nGoogle Cloud" as Google {
+    artifact "<<artifact>>\n**OAuth 2.0 / Calendar API**" as GoogleAPI
+}
+
+ClientPC -down-> Vercel : <<HTTPS>>
+Vercel -down-> Supabase : <<PostgreSQL protokol>>
+Vercel -right-> Google : <<HTTPS>>
+@enduml

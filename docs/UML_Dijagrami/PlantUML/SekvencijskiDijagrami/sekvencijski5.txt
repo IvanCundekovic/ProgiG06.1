@@ -1,0 +1,30 @@
+@startuml
+title Recenzije, ocjene i Q&A
+
+actor Polaznik
+actor Instruktor
+participant "Web aplikacija" as UI
+database "Baza podataka" as DB
+
+alt Polaznik je pohađao lekciju određenog instruktora
+  group Recenzije i ocjene
+    Polaznik -> UI : Ocjena (1-5) + komentar (+foto)
+    UI -> DB : Spremi recenziju/ocjenu
+    DB --> UI : OK
+    UI -> DB : Ažuriraj prosjek ocjena tečaja/lekcije
+    DB --> UI : Novi prosjek
+    UI --> Polaznik : Potvrda objave
+  end
+
+  group Pitanja i odgovori (Q&A)
+    Polaznik -> UI : Postavi pitanje na lekciji
+    UI -> DB : Spremi pitanje
+    DB --> UI : OK
+    Instruktor -> UI : Odgovori na pitanje
+    UI -> DB : Spremi odgovor
+    DB --> UI : OK
+  end
+else Polaznik nije pohađao nijednu lekciju tog instruktora
+  UI --> Polaznik : Onemogućen unos ocjene i komentara
+end
+@enduml

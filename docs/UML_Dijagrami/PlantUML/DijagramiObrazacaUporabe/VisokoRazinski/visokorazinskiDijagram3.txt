@@ -1,0 +1,37 @@
+@startuml
+top to bottom direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title Visokorazinski dijagram obrazaca uporabe (s pasivnim akterima)
+
+actor "Korisnik" as User
+actor "Polaznik" as Student
+actor "Instruktor" as Instructor
+
+User <|-- Student
+User <|-- Instructor
+
+
+actor "Baza podataka" as DB #gray
+
+rectangle "Cooking class" {
+  (UC10 - Ocjene, recenzije i Q&A)
+  (UC13 - Personalizirane preporuke tečajeva)
+  (UC14 - Pretraga i filtriranje sadržaja)
+  (UC15 - Praćenje napretka, zadatci i certifikati)
+ 
+}
+
+Student --> (UC10 - Ocjene, recenzije i Q&A)
+Student --> (UC13 - Personalizirane preporuke tečajeva)
+Student --> (UC14 - Pretraga i filtriranje sadržaja)
+Student --> (UC15 - Praćenje napretka, zadatci i certifikati)
+
+
+(UC10 - Ocjene, recenzije i Q&A) --> DB
+(UC13 - Personalizirane preporuke tečajeva) --> DB
+(UC14 - Pretraga i filtriranje sadržaja) --> DB
+(UC15 - Praćenje napretka, zadatci i certifikati) --> DB
+
+
+@enduml

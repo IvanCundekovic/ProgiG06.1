@@ -1,0 +1,54 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title Poslovni procesi sustava "Cooking Class"
+
+actor "Korisnik" as User
+actor "Instruktor" as Instructor
+actor "Polaznik" as Student
+actor "Administrator" as Admin
+
+actor "OAuth servis" as OAuth #gray
+actor "Kalendar / Streaming servis" as Calendar #gray
+actor "E-mail servis" as Email #gray
+actor "Push obavijesti (FCM / APNs)" as Push #gray
+
+User <|-- Instructor
+User <|-- Student
+
+rectangle {
+
+  (Registracija i prijava)
+  (Upravljanje sadržajem)
+  (Praćenje tečajeva)
+  (Ocjene i recenzije)
+  (Live radionice)
+  (Administracija sustava)
+}
+
+
+User --> (Registracija i prijava)
+
+
+Student --> (Praćenje tečajeva)
+Student --> (Ocjene i recenzije)
+Student --> (Live radionice)
+
+
+Instructor --> (Upravljanje sadržajem)
+Instructor --> (Live radionice)
+Instructor --> (Ocjene i recenzije)
+
+
+Admin --> (Administracija sustava)
+Admin --> (Upravljanje sadržajem)
+
+
+(Registracija i prijava) --> OAuth : autentikacija
+(Live radionice) --> Calendar : sinkronizacija termina
+(Administracija sustava) --> Email : sistemske poruke
+(Praćenje tečajeva) --> Push : notifikacije o napretku
+(Live radionice) --> Push : podsjetnici / obavijesti
+
+@enduml

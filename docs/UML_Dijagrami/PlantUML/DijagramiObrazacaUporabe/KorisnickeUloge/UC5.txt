@@ -1,0 +1,28 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC5: Promjena lozinke pri prvom prijavljivanju
+
+actor "Korisnik" as User
+actor "Baza podataka" as DB #gray
+
+rectangle {
+  (UC5 - Promjena lozinke pri prvom prijavljivanju)
+  (UC5.1 - Unos i potvrda nove lozinke)
+  (UC5.2 - Ažuriranje lozinke u bazi)
+  (UC5.3 - Lozinka ne zadovoljava sigurnosne kriterije)
+  (UC5.4 - Lozinke se ne podudaraju)
+}
+
+User --> (UC5 - Promjena lozinke pri prvom prijavljivanju)
+
+(UC5 - Promjena lozinke pri prvom prijavljivanju) ..> (UC5.1 - Unos i potvrda nove lozinke) : <<include>>
+(UC5 - Promjena lozinke pri prvom prijavljivanju) ..> (UC5.2 - Ažuriranje lozinke u bazi) : <<include>>
+
+(UC5.1 - Unos i potvrda nove lozinke) <.. (UC5.3 - Lozinka ne zadovoljava sigurnosne kriterije) : <<extend>>
+(UC5.1 - Unos i potvrda nove lozinke) <.. (UC5.4 - Lozinke se ne podudaraju) : <<extend>>
+
+(UC5.2 - Ažuriranje lozinke u bazi) --> DB : Spremanje nove lozinke
+
+@enduml

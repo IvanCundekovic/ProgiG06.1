@@ -1,0 +1,39 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC3: Upravljanje ulogama
+
+actor "Administrator" as Admin
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC3 - Upravljanje ulogama)
+  (UC3.1 - Odabir korisnika i dodjela uloge)
+  (UC3.2 - Ažuriranje baze podataka)
+  (UC3.3 - Greška pri upravljanju ulogama)
+  (UC3.3.1 - Nedovoljna prava administratora)
+  (UC3.3.2 - Neuspješno spremanje promjene)
+}
+
+
+Admin --> (UC3 - Upravljanje ulogama)
+
+
+(UC3 - Upravljanje ulogama) ..> (UC3.1 - Odabir korisnika i dodjela uloge) : <<include>>
+(UC3 - Upravljanje ulogama) ..> (UC3.2 - Ažuriranje baze podataka) : <<include>>
+
+
+(UC3.3 - Greška pri upravljanju ulogama) ..> (UC3 - Upravljanje ulogama) : <<extend>>
+
+
+(UC3.3.1 - Nedovoljna prava administratora) --|> (UC3.3 - Greška pri upravljanju ulogama)
+(UC3.3.2 - Neuspješno spremanje promjene) --|> (UC3.3 - Greška pri upravljanju ulogama)
+
+
+(UC3.2 - Ažuriranje baze podataka) --> DB : Spremanje uloge
+
+
+(UC3.3 - Greška pri upravljanju ulogama) --> Admin : Poruka o pogrešci
+
+@enduml
