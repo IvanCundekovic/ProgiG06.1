@@ -4,20 +4,15 @@ import {prisma} from '@/prisma';
 import {requireAuth} from '@/app/lib/api-helpers';
 import {generateCertificatePDF} from '@/app/lib/pdf-generator';
 
-vi.mock('next/server', () => ({
-    NextRequest: function (url: string, init?: any) {
-        return {
-            url,
-            method: init?.method || 'GET',
-        };
-    },
-    NextResponse: {
-        json: vi.fn((body, init) => ({
-            status: init?.status || 200,
-            json: async () => body,
-        })),
-    },
-}));
+vi.mock('next/server', async () => {
+    const actual = await vi.importActual('next/server');
+    return {
+        ...actual,
+        NextResponse: {
+            json: (data: any, init?: any) => Response.json(data, init),
+        },
+    };
+});
 
 vi.mock('@/prisma', () => ({
     prisma: {

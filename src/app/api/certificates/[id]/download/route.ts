@@ -38,7 +38,8 @@ export async function GET(
             const base64Data = certificate.pdfUrl.replace(/^data:application\/pdf;base64,/, "");
             const pdfBuffer = Buffer.from(base64Data, "base64");
 
-            return new NextResponse(pdfBuffer, {
+            return new Response(pdfBuffer, {
+                status: 200,
                 headers: {
                     "Content-Type": "application/pdf",
                     "Content-Disposition": `attachment; filename="certifikat-${certificate.courseTitle.replace(/[^a-z0-9]/gi, "_")}-${certificate.id}.pdf"`,
@@ -71,7 +72,8 @@ export async function GET(
 
         const responseBody = new Uint8Array(pdfBuffer);
 
-        return new NextResponse(responseBody, {
+        return new Response(responseBody, {
+            status: 200,
             headers: {
                 "Content-Type": "application/pdf",
                 "Content-Disposition": `attachment; filename="certifikat-${certificate.courseTitle.replace(/[^a-z0-9]/gi, "_")}-${certificate.id}.pdf"`,
