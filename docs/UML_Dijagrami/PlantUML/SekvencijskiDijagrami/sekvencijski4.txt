@@ -1,0 +1,30 @@
+@startuml
+title Prijava i promjena lozinke pri prvom prijavljivanju
+
+actor Korisnik
+participant "WebApp/UI" as UI
+database "Baza podataka" as DB
+
+Korisnik -> UI : Otvara /login
+Korisnik -> UI : Unosi email/lozinku ili OAuth
+UI -> DB : Provjera vjerodajnica
+alt Netočni podaci
+  DB --> UI : Neuspjeh
+  UI --> Korisnik : Poruka o pogrešnim podacima
+else Uspješno
+  DB --> UI : OK (first_login=true/false)
+  alt first_login = true
+    UI --> Korisnik : Zahtjev za promjenu lozinke
+    Korisnik -> UI : Unosi novu lozinku (i potvrdu)
+    alt Lozinka ne zadovoljava politiku
+      UI --> Korisnik : Upozorenje (duljina/složenost)
+    else Valjana lozinka
+      UI -> DB : Update lozinke + first_login=false
+      DB --> UI : OK
+      UI --> Korisnik : Prijava uspješna
+    end
+  else first_login = false
+    UI --> Korisnik : Prijava uspješna
+  end
+end
+@enduml
