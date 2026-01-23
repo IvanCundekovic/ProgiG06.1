@@ -1,0 +1,31 @@
+@startuml
+left to right direction
+skinparam actorStyle awesome
+skinparam packageStyle rectangle
+title UC12: Administracija sustava
+
+actor "Administrator" as Admin
+actor "Baza podataka" as DB #gray
+
+rectangle "Sustav" {
+  (UC12 - Administracija sustava)
+  (UC12.1 - Pregled korisnika, tecajeva i prijavljenog sadrzaja)
+  (UC12.2 - Uredjivanje, deaktivacija ili uklanjanje zapisa)
+  (UC12.3 - Spremanje promjena u bazu)
+  (UC12.4 - Nedostatne ovlasti administratora)
+}
+
+Admin --> (UC12 - Administracija sustava)
+
+
+(UC12 - Administracija sustava) ..> (UC12.1 - Pregled korisnika, tecajeva i prijavljenog sadrzaja) : <<include>>
+(UC12 - Administracija sustava) ..> (UC12.2 - Uredjivanje, deaktivacija ili uklanjanje zapisa) : <<include>>
+(UC12 - Administracija sustava) ..> (UC12.3 - Spremanje promjena u bazu) : <<include>>
+
+
+(UC12.4 - Nedostatne ovlasti administratora) ..> (UC12 - Administracija sustava) : <<extend>>
+
+
+(UC12.3 - Spremanje promjena u bazu) --> DB
+
+@enduml
