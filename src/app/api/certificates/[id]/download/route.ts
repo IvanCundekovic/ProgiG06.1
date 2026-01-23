@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/prisma";
-import { requireAuth } from "@/app/lib/api-helpers";
-import { generateCertificatePDF } from "@/app/lib/pdf-generator";
+import {NextRequest, NextResponse} from "next/server";
+import {prisma} from "@/prisma";
+import {requireAuth} from "@/app/lib/api-helpers";
+import {generateCertificatePDF} from "@/app/lib/pdf-generator";
 
 // GET endpoint za download certifikata kao PDF
 export async function GET(
-    request: NextRequest,
+    _request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
@@ -15,9 +15,6 @@ export async function GET(
         // Dohvati certifikat
         const certificate = await prisma.certificate.findUnique({
             where: { id: certificateId },
-            include: {
-                course: true,
-            },
         });
 
         if (!certificate) {
@@ -72,7 +69,9 @@ export async function GET(
             data: { pdfUrl },
         });
 
-        return new NextResponse(pdfBuffer, {
+        const responseBody = new Uint8Array(pdfBuffer);
+
+        return new NextResponse(responseBody, {
             headers: {
                 "Content-Type": "application/pdf",
                 "Content-Disposition": `attachment; filename="certifikat-${certificate.courseTitle.replace(/[^a-z0-9]/gi, "_")}-${certificate.id}.pdf"`,
